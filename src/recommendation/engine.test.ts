@@ -32,8 +32,10 @@ describe('recommend', () => {
     expect(r[0]?.reasons[0]).toContain('popular starting point');
     expect(recommend(PRODUCTS, BRANDS, empty).map((x) => x.product.id)).toEqual(r.map((x) => x.product.id));
   });
-  it('mood + delivery push the jazz-club dress to the top', () => {
-    const r = recommend(PRODUCTS, BRANDS, { ...empty, moods: ['jazz-club'], pincode: '400001' });
+  it('mood, colour, budget and delivery push the jazz-club dress to the top', () => {
+    // Without colour/budget, z1, m1 and i1 tie at 0.75 and would be ordered by id.
+    const r = recommend(PRODUCTS, BRANDS, { ...empty, moods: ['jazz-club'], colors: ['burgundy'],
+      budget: { min: 4000, max: 6000 }, pincode: '400001' });
     expect(r[0]?.product.id).toBe('z1');
     expect(r[0]?.reasons.join(' ')).toContain('Jazz-Club');
   });
