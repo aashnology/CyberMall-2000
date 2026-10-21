@@ -1,5 +1,5 @@
 export type MoodId = 'jazz-club' | 'corporate-chic' | 'dark-academia' | 'minimalist' | 'vintage-parisian';
-export type Category = 'apparel' | 'tech' | 'living' | 'editorial';
+export type Category = 'apparel' | 'tech' | 'living' | 'editorial' | 'food' | 'books' | 'accessories' | 'hobby' | 'cinema' | 'wellness';
 
 export interface Mood { id: MoodId; title: string; blurb: string }
 
@@ -8,6 +8,8 @@ export interface Brand {
   domain: string;               // used to fetch the real logo at runtime
   url: string;                  // verified outbound destination
   floor: number;
+  category: Category;           // which wing it belongs to
+  moods: MoodId[];              // mood alignment
   /** exact "400001", prefix "400*", or "*" for everywhere */
   supportedPincodes: string[];
 }

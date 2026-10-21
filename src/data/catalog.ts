@@ -8,26 +8,44 @@ export const MOODS: Mood[] = [
   { id: 'vintage-parisian', title: 'Vintage Parisian', blurb: 'Stripes, trench coats, cafes.' },
 ];
 
-export const FLOORS: { floor: number; label: string; category: Category }[] = [
-  { floor: 1, label: 'Apparel & Fashion', category: 'apparel' },
-  { floor: 2, label: 'Tech & Audio', category: 'tech' },
-  { floor: 3, label: 'Living & Furniture', category: 'living' },
-  { floor: 4, label: 'Editorial Mood Archives', category: 'editorial' },
+export const FLOORS: { floor: number; label: string; wings: string }[] = [
+  { floor: 1, label: 'Ground Promenade', wings: 'Apparel · Books · Accessories · Food · Wellness' },
+  { floor: 2, label: 'Upper Mezzanine', wings: 'Tech · Living · Luxury · Cinema · Collectibles' },
 ];
 
-// Demo data: delivery coverage is invented to exercise the pincode engine.
+const ALL = ['*'];
+const b = (id: string, name: string, domain: string, url: string, floor: number, category: Category,
+  moods: MoodId[], supportedPincodes: string[] = ALL): Brand =>
+  ({ id, name, domain, url, floor, category, moods, supportedPincodes });
+
+// Demo data: delivery coverage is invented to exercise the pincode engine. Verify URLs before publishing.
 export const BRANDS: Brand[] = [
-  { id: 'zara', name: 'Zara', domain: 'zara.com', url: 'https://www.zara.com/in/', floor: 1, supportedPincodes: ['*'] },
-  { id: 'mango', name: 'Mango', domain: 'mango.com', url: 'https://shop.mango.com/in', floor: 1, supportedPincodes: ['400*', '110*', '560*'] },
-  { id: 'nike', name: 'Nike', domain: 'nike.com', url: 'https://www.nike.com/in/', floor: 1, supportedPincodes: ['*'] },
-  { id: 'lifestyle', name: 'Lifestyle', domain: 'lifestylestores.com', url: 'https://www.lifestylestores.com/in/en', floor: 1, supportedPincodes: ['4*', '5*'] },
-  { id: 'ulta', name: 'Ulta Beauty', domain: 'ulta.com', url: 'https://www.ulta.com/', floor: 1, supportedPincodes: [] },
-  { id: 'marshalls', name: 'Marshalls', domain: 'marshalls.com', url: 'https://www.marshalls.com/', floor: 1, supportedPincodes: [] },
-  { id: 'sony', name: 'Sony', domain: 'sony.co.in', url: 'https://www.sony.co.in/', floor: 2, supportedPincodes: ['*'] },
-  { id: 'boat', name: 'boAt', domain: 'boat-lifestyle.com', url: 'https://www.boat-lifestyle.com/', floor: 2, supportedPincodes: ['*'] },
-  { id: 'ikea', name: 'IKEA', domain: 'ikea.com', url: 'https://www.ikea.com/in/en/', floor: 3, supportedPincodes: ['400*', '110*', '560*', '500*'] },
-  { id: 'pepperfry', name: 'Pepperfry', domain: 'pepperfry.com', url: 'https://www.pepperfry.com/', floor: 3, supportedPincodes: ['*'] },
-  { id: 'vogue', name: 'Vogue India', domain: 'vogue.in', url: 'https://www.vogue.in/', floor: 4, supportedPincodes: ['*'] },
+  b('zara', 'Zara', 'zara.com', 'https://www.zara.com/in/', 1, 'apparel', ['corporate-chic', 'minimalist']),
+  b('mango', 'Mango', 'mango.com', 'https://shop.mango.com/in', 1, 'apparel', ['vintage-parisian', 'jazz-club'], ['400*', '110*', '560*']),
+  b('nike', 'Nike', 'nike.com', 'https://www.nike.com/in/', 1, 'apparel', ['minimalist']),
+  b('lifestyle', 'Lifestyle', 'lifestylestores.com', 'https://www.lifestylestores.com/in/en', 1, 'apparel', ['minimalist', 'corporate-chic'], ['4*', '5*']),
+  b('marshalls', 'Marshalls', 'marshalls.com', 'https://www.marshalls.com/', 1, 'apparel', ['minimalist'], []),
+  b('crossword', 'Crossword', 'crossword.in', 'https://www.crossword.in/', 1, 'books', ['dark-academia']),
+  b('archies', 'Archies', 'archiesonline.com', 'https://www.archiesonline.com/', 1, 'books', ['vintage-parisian']),
+  b('titan', 'Titan', 'titan.co.in', 'https://www.titan.co.in/', 1, 'accessories', ['corporate-chic', 'vintage-parisian']),
+  b('rayban', 'Ray-Ban', 'ray-ban.com', 'https://www.ray-ban.com/india', 1, 'accessories', ['jazz-club']),
+  b('fossil', 'Fossil', 'fossil.com', 'https://www.fossil.com/en-in/', 1, 'accessories', ['minimalist'], ['4*', '5*', '1*']),
+  b('starbucks', 'Starbucks', 'starbucks.in', 'https://www.starbucks.in/', 1, 'food', ['dark-academia']),
+  b('theobroma', 'Theobroma', 'theobroma.in', 'https://theobroma.in/', 1, 'food', ['vintage-parisian']),
+  b('chaayos', 'Chaayos', 'chaayos.com', 'https://chaayos.com/', 1, 'food', ['minimalist']),
+  b('ulta', 'Ulta Beauty', 'ulta.com', 'https://www.ulta.com/', 1, 'wellness', ['minimalist'], []),
+  b('nykaa', 'Nykaa', 'nykaa.com', 'https://www.nykaa.com/', 1, 'wellness', ['minimalist']),
+  b('forest', 'Forest Essentials', 'forestessentials.com', 'https://www.forestessentials.com/', 1, 'wellness', ['vintage-parisian', 'dark-academia']),
+  b('sony', 'Sony', 'sony.co.in', 'https://www.sony.co.in/', 2, 'tech', ['minimalist', 'corporate-chic']),
+  b('boat', 'boAt', 'boat-lifestyle.com', 'https://www.boat-lifestyle.com/', 2, 'tech', ['minimalist']),
+  b('ikea', 'IKEA', 'ikea.com', 'https://www.ikea.com/in/en/', 2, 'living', ['dark-academia', 'jazz-club'], ['400*', '110*', '560*', '500*']),
+  b('pepperfry', 'Pepperfry', 'pepperfry.com', 'https://www.pepperfry.com/', 2, 'living', ['dark-academia', 'vintage-parisian']),
+  b('vogue', 'Vogue India', 'vogue.in', 'https://www.vogue.in/', 2, 'editorial', ['jazz-club', 'vintage-parisian']),
+  b('sabyasachi', 'Sabyasachi', 'sabyasachi.com', 'https://www.sabyasachi.com/', 2, 'editorial', ['jazz-club'], ['400*', '110*']),
+  b('pvr', 'PVR INOX', 'pvrcinemas.com', 'https://www.pvrcinemas.com/', 2, 'cinema', ['jazz-club']),
+  b('bms', 'BookMyShow', 'bookmyshow.com', 'https://in.bookmyshow.com/', 2, 'cinema', ['jazz-club', 'vintage-parisian']),
+  b('hamleys', 'Hamleys', 'hamleys.in', 'https://www.hamleys.in/', 2, 'hobby', ['minimalist']),
+  b('lego', 'LEGO', 'lego.com', 'https://www.lego.com/en-in', 2, 'hobby', ['minimalist']),
 ];
 
 const brandUrl = (id: string): string => BRANDS.find((b) => b.id === id)?.url ?? '';
