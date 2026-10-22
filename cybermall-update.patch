@@ -1,0 +1,1340 @@
+From 65c1fc8740637c6a183183e1780fa396a91659be Mon Sep 17 00:00:00 2001
+From: Aashna <aashna.chakrabortyy@gmail.com>
+Date: Wed, 21 Oct 2026 16:41:13 +0000
+Subject: [PATCH 1/5] Add 6 new wings, two-floor catalog and atrium perimeter
+ layout
+
+---
+ src/data/catalog.ts     | 52 +++++++++++++++++++++++++++--------------
+ src/data/layout.test.ts | 28 ++++++++++++++++++++++
+ src/data/layout.ts      | 45 +++++++++++++++++++++++++++++++++++
+ src/types/index.ts      |  4 +++-
+ 4 files changed, 111 insertions(+), 18 deletions(-)
+ create mode 100644 src/data/layout.test.ts
+ create mode 100644 src/data/layout.ts
+
+diff --git a/src/data/catalog.ts b/src/data/catalog.ts
+index ce2c72d..5bc9564 100644
+--- a/src/data/catalog.ts
++++ b/src/data/catalog.ts
+@@ -8,26 +8,44 @@ export const MOODS: Mood[] = [
+   { id: 'vintage-parisian', title: 'Vintage Parisian', blurb: 'Stripes, trench coats, cafes.' },
+ ];
+ 
+-export const FLOORS: { floor: number; label: string; category: Category }[] = [
+-  { floor: 1, label: 'Apparel & Fashion', category: 'apparel' },
+-  { floor: 2, label: 'Tech & Audio', category: 'tech' },
+-  { floor: 3, label: 'Living & Furniture', category: 'living' },
+-  { floor: 4, label: 'Editorial Mood Archives', category: 'editorial' },
++export const FLOORS: { floor: number; label: string; wings: string }[] = [
++  { floor: 1, label: 'Ground Promenade', wings: 'Apparel · Books · Accessories · Food · Wellness' },
++  { floor: 2, label: 'Upper Mezzanine', wings: 'Tech · Living · Luxury · Cinema · Collectibles' },
+ ];
+ 
+-// Demo data: delivery coverage is invented to exercise the pincode engine.
++const ALL = ['*'];
++const b = (id: string, name: string, domain: string, url: string, floor: number, category: Category,
++  moods: MoodId[], supportedPincodes: string[] = ALL): Brand =>
++  ({ id, name, domain, url, floor, category, moods, supportedPincodes });
++
++// Demo data: delivery coverage is invented to exercise the pincode engine. Verify URLs before publishing.
+ export const BRANDS: Brand[] = [
+-  { id: 'zara', name: 'Zara', domain: 'zara.com', url: 'https://www.zara.com/in/', floor: 1, supportedPincodes: ['*'] },
+-  { id: 'mango', name: 'Mango', domain: 'mango.com', url: 'https://shop.mango.com/in', floor: 1, supportedPincodes: ['400*', '110*', '560*'] },
+-  { id: 'nike', name: 'Nike', domain: 'nike.com', url: 'https://www.nike.com/in/', floor: 1, supportedPincodes: ['*'] },
+-  { id: 'lifestyle', name: 'Lifestyle', domain: 'lifestylestores.com', url: 'https://www.lifestylestores.com/in/en', floor: 1, supportedPincodes: ['4*', '5*'] },
+-  { id: 'ulta', name: 'Ulta Beauty', domain: 'ulta.com', url: 'https://www.ulta.com/', floor: 1, supportedPincodes: [] },
+-  { id: 'marshalls', name: 'Marshalls', domain: 'marshalls.com', url: 'https://www.marshalls.com/', floor: 1, supportedPincodes: [] },
+-  { id: 'sony', name: 'Sony', domain: 'sony.co.in', url: 'https://www.sony.co.in/', floor: 2, supportedPincodes: ['*'] },
+-  { id: 'boat', name: 'boAt', domain: 'boat-lifestyle.com', url: 'https://www.boat-lifestyle.com/', floor: 2, supportedPincodes: ['*'] },
+-  { id: 'ikea', name: 'IKEA', domain: 'ikea.com', url: 'https://www.ikea.com/in/en/', floor: 3, supportedPincodes: ['400*', '110*', '560*', '500*'] },
+-  { id: 'pepperfry', name: 'Pepperfry', domain: 'pepperfry.com', url: 'https://www.pepperfry.com/', floor: 3, supportedPincodes: ['*'] },
+-  { id: 'vogue', name: 'Vogue India', domain: 'vogue.in', url: 'https://www.vogue.in/', floor: 4, supportedPincodes: ['*'] },
++  b('zara', 'Zara', 'zara.com', 'https://www.zara.com/in/', 1, 'apparel', ['corporate-chic', 'minimalist']),
++  b('mango', 'Mango', 'mango.com', 'https://shop.mango.com/in', 1, 'apparel', ['vintage-parisian', 'jazz-club'], ['400*', '110*', '560*']),
++  b('nike', 'Nike', 'nike.com', 'https://www.nike.com/in/', 1, 'apparel', ['minimalist']),
++  b('lifestyle', 'Lifestyle', 'lifestylestores.com', 'https://www.lifestylestores.com/in/en', 1, 'apparel', ['minimalist', 'corporate-chic'], ['4*', '5*']),
++  b('marshalls', 'Marshalls', 'marshalls.com', 'https://www.marshalls.com/', 1, 'apparel', ['minimalist'], []),
++  b('crossword', 'Crossword', 'crossword.in', 'https://www.crossword.in/', 1, 'books', ['dark-academia']),
++  b('archies', 'Archies', 'archiesonline.com', 'https://www.archiesonline.com/', 1, 'books', ['vintage-parisian']),
++  b('titan', 'Titan', 'titan.co.in', 'https://www.titan.co.in/', 1, 'accessories', ['corporate-chic', 'vintage-parisian']),
++  b('rayban', 'Ray-Ban', 'ray-ban.com', 'https://www.ray-ban.com/india', 1, 'accessories', ['jazz-club']),
++  b('fossil', 'Fossil', 'fossil.com', 'https://www.fossil.com/en-in/', 1, 'accessories', ['minimalist'], ['4*', '5*', '1*']),
++  b('starbucks', 'Starbucks', 'starbucks.in', 'https://www.starbucks.in/', 1, 'food', ['dark-academia']),
++  b('theobroma', 'Theobroma', 'theobroma.in', 'https://theobroma.in/', 1, 'food', ['vintage-parisian']),
++  b('chaayos', 'Chaayos', 'chaayos.com', 'https://chaayos.com/', 1, 'food', ['minimalist']),
++  b('ulta', 'Ulta Beauty', 'ulta.com', 'https://www.ulta.com/', 1, 'wellness', ['minimalist'], []),
++  b('nykaa', 'Nykaa', 'nykaa.com', 'https://www.nykaa.com/', 1, 'wellness', ['minimalist']),
++  b('forest', 'Forest Essentials', 'forestessentials.com', 'https://www.forestessentials.com/', 1, 'wellness', ['vintage-parisian', 'dark-academia']),
++  b('sony', 'Sony', 'sony.co.in', 'https://www.sony.co.in/', 2, 'tech', ['minimalist', 'corporate-chic']),
++  b('boat', 'boAt', 'boat-lifestyle.com', 'https://www.boat-lifestyle.com/', 2, 'tech', ['minimalist']),
++  b('ikea', 'IKEA', 'ikea.com', 'https://www.ikea.com/in/en/', 2, 'living', ['dark-academia', 'jazz-club'], ['400*', '110*', '560*', '500*']),
++  b('pepperfry', 'Pepperfry', 'pepperfry.com', 'https://www.pepperfry.com/', 2, 'living', ['dark-academia', 'vintage-parisian']),
++  b('vogue', 'Vogue India', 'vogue.in', 'https://www.vogue.in/', 2, 'editorial', ['jazz-club', 'vintage-parisian']),
++  b('sabyasachi', 'Sabyasachi', 'sabyasachi.com', 'https://www.sabyasachi.com/', 2, 'editorial', ['jazz-club'], ['400*', '110*']),
++  b('pvr', 'PVR INOX', 'pvrcinemas.com', 'https://www.pvrcinemas.com/', 2, 'cinema', ['jazz-club']),
++  b('bms', 'BookMyShow', 'bookmyshow.com', 'https://in.bookmyshow.com/', 2, 'cinema', ['jazz-club', 'vintage-parisian']),
++  b('hamleys', 'Hamleys', 'hamleys.in', 'https://www.hamleys.in/', 2, 'hobby', ['minimalist']),
++  b('lego', 'LEGO', 'lego.com', 'https://www.lego.com/en-in', 2, 'hobby', ['minimalist']),
+ ];
+ 
+ const brandUrl = (id: string): string => BRANDS.find((b) => b.id === id)?.url ?? '';
+diff --git a/src/data/layout.test.ts b/src/data/layout.test.ts
+new file mode 100644
+index 0000000..3f4c2bb
+--- /dev/null
++++ b/src/data/layout.test.ts
+@@ -0,0 +1,28 @@
++import { describe, expect, it } from 'vitest';
++import { BRANDS, FLOORS } from './catalog';
++import { HALF_D, HALF_W, WING_ORDER, placeStores } from './layout';
++
++describe('layout', () => {
++  it('places every brand on the perimeter and clear of the elevator', () => {
++    for (const { floor } of FLOORS) {
++      const placed = placeStores(floor);
++      expect(placed.length).toBe(BRANDS.filter((b) => b.floor === floor).length);
++      for (const { slot } of placed) {
++        expect(Math.abs(slot.x) === HALF_W || Math.abs(slot.z) === HALF_D).toBe(true);
++        expect(slot.z > HALF_D - 4 && Math.abs(slot.x) < 5).toBe(false);
++      }
++    }
++  });
++  it('keeps each wing contiguous', () => {
++    const order = WING_ORDER[1] ?? [];
++    const idx = placeStores(1).map((p) => order.indexOf(p.brand.category));
++    expect(idx).toEqual([...idx].sort((a, b) => a - b));
++  });
++  it('gives every brand valid metadata', () => {
++    for (const b of BRANDS) {
++      expect(b.url.startsWith('https://')).toBe(true);
++      expect(b.moods.length).toBeGreaterThan(0);
++      expect([1, 2]).toContain(b.floor);
++    }
++  });
++});
+diff --git a/src/data/layout.ts b/src/data/layout.ts
+new file mode 100644
+index 0000000..4be7efb
+--- /dev/null
++++ b/src/data/layout.ts
+@@ -0,0 +1,45 @@
++import { BRANDS } from './catalog';
++import type { Brand, Category } from '../types';
++
++/** The mall is a rectangle of stores around a central atrium. Units are metres. */
++export const HALF_W = 20;
++export const HALF_D = 14;
++export const FOUNTAIN_RADIUS = 3;
++export const ELEVATOR = { x: 0, z: HALF_D - 1 };
++const SPACING = 6;
++
++/** Stores are grouped by wing, in this order, walking clockwise from the top-left corner. */
++export const WING_ORDER: Record<number, Category[]> = {
++  1: ['apparel', 'books', 'accessories', 'food', 'wellness'],
++  2: ['tech', 'living', 'editorial', 'cinema', 'hobby'],
++};
++
++export interface Slot { x: number; z: number; rotY: number }
++export interface Placed { brand: Brand; slot: Slot }
++
++function pointAt(d: number): { x: number; z: number } {
++  const w = 2 * HALF_W; const h = 2 * HALF_D;
++  if (d < w) return { x: -HALF_W + d, z: -HALF_D };
++  if (d < w + h) return { x: HALF_W, z: -HALF_D + (d - w) };
++  if (d < 2 * w + h) return { x: HALF_W - (d - w - h), z: HALF_D };
++  return { x: -HALF_W, z: HALF_D - (d - 2 * w - h) };
++}
++
++/** Evenly spaced points on the outer wall, skipping the gap in front of the elevator bank. */
++export function perimeterSlots(n: number): Slot[] {
++  const total = 2 * (2 * HALF_W) + 2 * (2 * HALF_D);
++  const points: { x: number; z: number }[] = [];
++  for (let i = 0; i < Math.floor(total / SPACING); i++) points.push(pointAt(i * SPACING));
++  return points
++    .filter((p) => !(p.z > HALF_D - 4 && Math.abs(p.x) < 5))
++    .slice(0, n)
++    .map((p) => ({ ...p, rotY: Math.atan2(-p.x, -p.z) })); // local +z faces the atrium
++}
++
++export function placeStores(floor: number, brands: readonly Brand[] = BRANDS): Placed[] {
++  const order = WING_ORDER[floor] ?? [];
++  const onFloor = brands.filter((b) => b.floor === floor)
++    .sort((a, b) => order.indexOf(a.category) - order.indexOf(b.category));
++  const slots = perimeterSlots(onFloor.length);
++  return onFloor.flatMap((brand, i) => { const slot = slots[i]; return slot ? [{ brand, slot }] : []; });
++}
+diff --git a/src/types/index.ts b/src/types/index.ts
+index 1aee308..9125bed 100644
+--- a/src/types/index.ts
++++ b/src/types/index.ts
+@@ -1,5 +1,5 @@
+ export type MoodId = 'jazz-club' | 'corporate-chic' | 'dark-academia' | 'minimalist' | 'vintage-parisian';
+-export type Category = 'apparel' | 'tech' | 'living' | 'editorial';
++export type Category = 'apparel' | 'tech' | 'living' | 'editorial' | 'food' | 'books' | 'accessories' | 'hobby' | 'cinema' | 'wellness';
+ 
+ export interface Mood { id: MoodId; title: string; blurb: string }
+ 
+@@ -8,6 +8,8 @@ export interface Brand {
+   domain: string;               // used to fetch the real logo at runtime
+   url: string;                  // verified outbound destination
+   floor: number;
++  category: Category;           // which wing it belongs to
++  moods: MoodId[];              // mood alignment
+   /** exact "400001", prefix "400*", or "*" for everywhere */
+   supportedPincodes: string[];
+ }
+-- 
+2.43.0
+
+
+From a1d351799d358cc1b87306ea097c99257452f4e7 Mon Sep 17 00:00:00 2001
+From: Aashna <aashna.chakrabortyy@gmail.com>
+Date: Wed, 21 Oct 2026 16:41:13 +0000
+Subject: [PATCH 2/5] Phase 4: telemetry schema, dispatcher, aggregation, CSV
+ export and tests
+
+---
+ src/telemetry/aggregate.ts      | 53 ++++++++++++++++++++++++++++++++
+ src/telemetry/csv.ts            |  8 +++++
+ src/telemetry/dispatcher.ts     | 24 +++++++++++++++
+ src/telemetry/index.ts          |  4 +++
+ src/telemetry/schema.ts         | 14 +++++++++
+ src/telemetry/telemetry.test.ts | 54 +++++++++++++++++++++++++++++++++
+ src/telemetry/types.ts          |  5 +++
+ 7 files changed, 162 insertions(+)
+ create mode 100644 src/telemetry/aggregate.ts
+ create mode 100644 src/telemetry/csv.ts
+ create mode 100644 src/telemetry/dispatcher.ts
+ create mode 100644 src/telemetry/index.ts
+ create mode 100644 src/telemetry/schema.ts
+ create mode 100644 src/telemetry/telemetry.test.ts
+ create mode 100644 src/telemetry/types.ts
+
+diff --git a/src/telemetry/aggregate.ts b/src/telemetry/aggregate.ts
+new file mode 100644
+index 0000000..fa02652
+--- /dev/null
++++ b/src/telemetry/aggregate.ts
+@@ -0,0 +1,53 @@
++import type { EventType, TelemetryEvent } from './types';
++
++const sessionsWith = (events: readonly TelemetryEvent[], t: EventType): Set<string> =>
++  new Set(events.filter((e) => e.eventType === t).map((e) => String(e.properties.sessionId)));
++const count = (events: readonly TelemetryEvent[], t: EventType): number => events.filter((e) => e.eventType === t).length;
++
++export interface Kpis { totalInteractions: number; uniqueMoodSessions: number; ctr: number; moodToSave: number }
++
++/** CTR = clicks / impressions (0 if none). Mood-to-save = mood sessions that also saved / mood sessions (0 if none). */
++export function kpis(events: readonly TelemetryEvent[]): Kpis {
++  const impressions = count(events, 'RECOMMENDATION_IMPRESSION');
++  const moodSessions = sessionsWith(events, 'MOOD_SELECTED');
++  const saveSessions = sessionsWith(events, 'PRODUCT_SAVED');
++  const converted = [...moodSessions].filter((s) => saveSessions.has(s)).length;
++  return {
++    totalInteractions: events.length,
++    uniqueMoodSessions: moodSessions.size,
++    ctr: impressions === 0 ? 0 : count(events, 'RECOMMENDATION_CLICKED') / impressions,
++    moodToSave: moodSessions.size === 0 ? 0 : converted / moodSessions.size,
++  };
++}
++
++export function countBy(events: readonly TelemetryEvent[], type: EventType, prop: string): { key: string; count: number }[] {
++  const m = new Map<string, number>();
++  for (const e of events) if (e.eventType === type) { const k = String(e.properties[prop] ?? 'unknown'); m.set(k, (m.get(k) ?? 0) + 1); }
++  return [...m].map(([key, n]) => ({ key, count: n })).sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
++}
++
++export const FUNNEL_STAGES: EventType[] = ['MOOD_SELECTED', 'STORE_VISITED', 'RECOMMENDATION_IMPRESSION', 'PRODUCT_SAVED', 'EXTERNAL_ROUTE_CLICKED'];
++
++/** Cumulative: a session counts at a stage only if it reached every earlier stage too. */
++export function funnel(events: readonly TelemetryEvent[]): { stage: EventType; sessions: number }[] {
++  const out: { stage: EventType; sessions: number }[] = [];
++  let alive: Set<string> | null = null;
++  for (const stage of FUNNEL_STAGES) {
++    const s = sessionsWith(events, stage);
++    alive = alive === null ? s : new Set([...alive].filter((x) => s.has(x)));
++    out.push({ stage, sessions: alive.size });
++  }
++  return out;
++}
++
++export function impressionsVsClicks(events: readonly TelemetryEvent[]): { category: string; impressions: number; clicks: number }[] {
++  const m = new Map<string, { category: string; impressions: number; clicks: number }>();
++  for (const e of events) {
++    if (e.eventType !== 'RECOMMENDATION_IMPRESSION' && e.eventType !== 'RECOMMENDATION_CLICKED') continue;
++    const category = String(e.properties.category ?? 'unknown');
++    const row = m.get(category) ?? { category, impressions: 0, clicks: 0 };
++    if (e.eventType === 'RECOMMENDATION_IMPRESSION') row.impressions++; else row.clicks++;
++    m.set(category, row);
++  }
++  return [...m.values()].sort((a, b) => b.impressions - a.impressions || a.category.localeCompare(b.category));
++}
+diff --git a/src/telemetry/csv.ts b/src/telemetry/csv.ts
+new file mode 100644
+index 0000000..121f64e
+--- /dev/null
++++ b/src/telemetry/csv.ts
+@@ -0,0 +1,8 @@
++import type { TelemetryEvent } from './types';
++
++export const escapeCsv = (v: string): string => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
++
++export function toCsv(events: readonly TelemetryEvent[]): string {
++  const rows = events.map((e) => [e.eventId, e.eventType, String(e.timestamp), String(e.properties.sessionId ?? ''), JSON.stringify(e.properties)].map(escapeCsv).join(','));
++  return ['eventId,eventType,timestamp,sessionId,properties', ...rows].join('\n');
++}
+diff --git a/src/telemetry/dispatcher.ts b/src/telemetry/dispatcher.ts
+new file mode 100644
+index 0000000..331eda6
+--- /dev/null
++++ b/src/telemetry/dispatcher.ts
+@@ -0,0 +1,24 @@
++import { isTelemetryEvent } from './schema';
++import type { EventType, Prop, TelemetryEvent } from './types';
++
++export interface KeyValueStore { getItem(k: string): string | null; setItem(k: string, v: string): void }
++const KEY = 'cybermall-events';
++const MAX_EVENTS = 5000;
++
++/** Pure factory (storage, clock and id are injected) so it can be unit tested without a browser. */
++export function createDispatcher(store: KeyValueStore, sessionId: string, now: () => number = Date.now,
++  newId: () => string = () => crypto.randomUUID()) {
++  function read(): TelemetryEvent[] {
++    try {
++      const raw = store.getItem(KEY);
++      const parsed: unknown = raw ? JSON.parse(raw) : [];
++      return Array.isArray(parsed) ? parsed.filter(isTelemetryEvent) : [];
++    } catch { return []; }
++  }
++  function track(eventType: EventType, properties: Record<string, Prop> = {}): TelemetryEvent {
++    const event: TelemetryEvent = { eventId: newId(), eventType, timestamp: now(), properties: { ...properties, sessionId } };
++    try { store.setItem(KEY, JSON.stringify([...read(), event].slice(-MAX_EVENTS))); } catch { /* storage full: drop */ }
++    return event;
++  }
++  return { track, read, clear: () => store.setItem(KEY, '[]') };
++}
+diff --git a/src/telemetry/index.ts b/src/telemetry/index.ts
+new file mode 100644
+index 0000000..058b635
+--- /dev/null
++++ b/src/telemetry/index.ts
+@@ -0,0 +1,4 @@
++import { createDispatcher } from './dispatcher';
++
++export const telemetry = createDispatcher(window.localStorage, crypto.randomUUID());
++export const track = telemetry.track;
+diff --git a/src/telemetry/schema.ts b/src/telemetry/schema.ts
+new file mode 100644
+index 0000000..4732b82
+--- /dev/null
++++ b/src/telemetry/schema.ts
+@@ -0,0 +1,14 @@
++import { EVENT_TYPES, type EventType, type TelemetryEvent } from './types';
++
++const isPrim = (v: unknown): boolean => ['string', 'number', 'boolean'].includes(typeof v);
++
++/** Runtime check so corrupted localStorage rows never reach the dashboard. */
++export function isTelemetryEvent(v: unknown): v is TelemetryEvent {
++  if (typeof v !== 'object' || v === null) return false;
++  const e = v as Record<string, unknown>;
++  if (typeof e.eventId !== 'string' || e.eventId === '') return false;
++  if (typeof e.eventType !== 'string' || !(EVENT_TYPES as readonly string[]).includes(e.eventType as EventType)) return false;
++  if (typeof e.timestamp !== 'number' || !Number.isFinite(e.timestamp)) return false;
++  if (typeof e.properties !== 'object' || e.properties === null) return false;
++  return Object.values(e.properties).every(isPrim);
++}
+diff --git a/src/telemetry/telemetry.test.ts b/src/telemetry/telemetry.test.ts
+new file mode 100644
+index 0000000..47aeada
+--- /dev/null
++++ b/src/telemetry/telemetry.test.ts
+@@ -0,0 +1,54 @@
++import { describe, expect, it } from 'vitest';
++import { countBy, funnel, impressionsVsClicks, kpis } from './aggregate';
++import { escapeCsv, toCsv } from './csv';
++import { createDispatcher } from './dispatcher';
++import { isTelemetryEvent } from './schema';
++import type { EventType, Prop, TelemetryEvent } from './types';
++
++let n = 0;
++const ev = (eventType: EventType, properties: Record<string, Prop> = {}): TelemetryEvent => ({ eventId: `e${n++}`, eventType, timestamp: 1, properties });
++
++describe('schema', () => {
++  it('accepts valid events and rejects malformed ones', () => {
++    expect(isTelemetryEvent(ev('MOOD_SELECTED'))).toBe(true);
++    expect(isTelemetryEvent({ eventId: 'x', eventType: 'NOPE', timestamp: 1, properties: {} })).toBe(false);
++    expect(isTelemetryEvent({ eventId: 'x', eventType: 'PRODUCT_SAVED', timestamp: NaN, properties: {} })).toBe(false);
++    expect(isTelemetryEvent({ eventId: 'x', eventType: 'PRODUCT_SAVED', timestamp: 1, properties: { a: {} } })).toBe(false);
++    expect(isTelemetryEvent(null)).toBe(false);
++  });
++});
++describe('dispatcher', () => {
++  it('stores events with the session id and survives corrupted storage', () => {
++    const data: Record<string, string> = { 'cybermall-events': 'not json' };
++    const d = createDispatcher({ getItem: (k) => data[k] ?? null, setItem: (k, v) => { data[k] = v; } }, 's1', () => 5, () => 'id1');
++    expect(d.read()).toEqual([]);
++    d.track('PINCODE_UPDATED', { pincode: '400001' });
++    expect(d.read()[0]).toMatchObject({ eventId: 'id1', timestamp: 5, properties: { pincode: '400001', sessionId: 's1' } });
++  });
++});
++describe('aggregate', () => {
++  const events = [
++    ev('MOOD_SELECTED', { sessionId: 'a', moodId: 'jazz-club' }), ev('STORE_VISITED', { sessionId: 'a' }),
++    ev('RECOMMENDATION_IMPRESSION', { sessionId: 'a', category: 'apparel' }), ev('RECOMMENDATION_IMPRESSION', { sessionId: 'a', category: 'apparel' }),
++    ev('RECOMMENDATION_CLICKED', { sessionId: 'a', category: 'apparel' }), ev('PRODUCT_SAVED', { sessionId: 'a' }),
++    ev('MOOD_SELECTED', { sessionId: 'b', moodId: 'jazz-club' }), ev('STORE_VISITED', { sessionId: 'b' }),
++  ];
++  it('computes KPIs and handles empty input without dividing by zero', () => {
++    expect(kpis(events)).toEqual({ totalInteractions: 8, uniqueMoodSessions: 2, ctr: 0.5, moodToSave: 0.5 });
++    expect(kpis([])).toEqual({ totalInteractions: 0, uniqueMoodSessions: 0, ctr: 0, moodToSave: 0 });
++  });
++  it('builds a cumulative funnel', () => {
++    expect(funnel(events).map((f) => f.sessions)).toEqual([2, 2, 1, 1, 0]);
++  });
++  it('groups by property and category', () => {
++    expect(countBy(events, 'MOOD_SELECTED', 'moodId')).toEqual([{ key: 'jazz-club', count: 2 }]);
++    expect(impressionsVsClicks(events)).toEqual([{ category: 'apparel', impressions: 2, clicks: 1 }]);
++  });
++});
++describe('csv', () => {
++  it('escapes commas, quotes and newlines', () => {
++    expect(escapeCsv('a,b')).toBe('"a,b"');
++    expect(escapeCsv('say "hi"')).toBe('"say ""hi"""');
++    expect(toCsv([ev('PRODUCT_SAVED', { sessionId: 's' })]).split('\n')).toHaveLength(2);
++  });
++});
+diff --git a/src/telemetry/types.ts b/src/telemetry/types.ts
+new file mode 100644
+index 0000000..857238b
+--- /dev/null
++++ b/src/telemetry/types.ts
+@@ -0,0 +1,5 @@
++export const EVENT_TYPES = ['MOOD_SELECTED', 'STORE_VISITED', 'PRODUCT_VIEWED', 'PRODUCT_SAVED', 'RECOMMENDATION_IMPRESSION',
++  'RECOMMENDATION_CLICKED', 'EXTERNAL_ROUTE_CLICKED', 'PINCODE_UPDATED', 'FLOOR_CHANGED', 'MAP_OPENED', 'EASTER_EGG_FOUND'] as const;
++export type EventType = (typeof EVENT_TYPES)[number];
++export type Prop = string | number | boolean;
++export interface TelemetryEvent { eventId: string; eventType: EventType; timestamp: number; properties: Record<string, Prop> }
+-- 
+2.43.0
+
+
+From ced1551e6d9e9140f59e01869c0376ab89e5b860 Mon Sep 17 00:00:00 2001
+From: Aashna <aashna.chakrabortyy@gmail.com>
+Date: Wed, 21 Oct 2026 16:41:13 +0000
+Subject: [PATCH 3/5] Add day-to-night lighting presets and hidden-collectible
+ rewards with tests
+
+---
+ src/lighting/dayCycle.test.ts    | 13 +++++++++++++
+ src/lighting/dayCycle.ts         | 17 +++++++++++++++++
+ src/rewards/collectibles.test.ts | 13 +++++++++++++
+ src/rewards/collectibles.ts      | 17 +++++++++++++++++
+ 4 files changed, 60 insertions(+)
+ create mode 100644 src/lighting/dayCycle.test.ts
+ create mode 100644 src/lighting/dayCycle.ts
+ create mode 100644 src/rewards/collectibles.test.ts
+ create mode 100644 src/rewards/collectibles.ts
+
+diff --git a/src/lighting/dayCycle.test.ts b/src/lighting/dayCycle.test.ts
+new file mode 100644
+index 0000000..369e461
+--- /dev/null
++++ b/src/lighting/dayCycle.test.ts
+@@ -0,0 +1,13 @@
++import { describe, expect, it } from 'vitest';
++import { PRESETS, timeOfDayFromHour } from './dayCycle';
++
++describe('day cycle', () => {
++  it('maps hours to phases including boundaries and wrap-around', () => {
++    expect([4, 5, 11, 12, 16, 17, 20, 21, 0, 25].map(timeOfDayFromHour))
++      .toEqual(['midnight', 'morning', 'morning', 'afternoon', 'afternoon', 'twilight', 'twilight', 'midnight', 'midnight', 'midnight']);
++  });
++  it('turns neon and the avatar spotlight up at night', () => {
++    expect(PRESETS.midnight.neon).toBeGreaterThan(PRESETS.morning.neon);
++    expect(PRESETS.morning.spot).toBe(0);
++  });
++});
+diff --git a/src/lighting/dayCycle.ts b/src/lighting/dayCycle.ts
+new file mode 100644
+index 0000000..20baf1e
+--- /dev/null
++++ b/src/lighting/dayCycle.ts
+@@ -0,0 +1,17 @@
++export type TimeOfDay = 'morning' | 'afternoon' | 'twilight' | 'midnight';
++export interface LightPreset { label: string; sky: string; skylight: string; ambient: number; sun: number; neon: number; spot: number }
++
++export const PRESETS: Record<TimeOfDay, LightPreset> = {
++  morning: { label: 'Morning Glow', sky: '#fdf3e3', skylight: '#fff1d6', ambient: 0.9, sun: 1.2, neon: 0.2, spot: 0 },
++  afternoon: { label: 'Golden Afternoon', sky: '#f6e2b8', skylight: '#ffd58a', ambient: 0.8, sun: 1.4, neon: 0.3, spot: 0 },
++  twilight: { label: 'Electric Neon Twilight', sky: '#3b1d4f', skylight: '#ff5fa8', ambient: 0.45, sun: 0.5, neon: 1, spot: 20 },
++  midnight: { label: 'Cyberpunk Midnight', sky: '#0a0a1c', skylight: '#2a7bff', ambient: 0.25, sun: 0.2, neon: 1.6, spot: 35 },
++};
++
++export function timeOfDayFromHour(hour: number): TimeOfDay {
++  const h = ((Math.floor(hour) % 24) + 24) % 24;
++  if (h >= 5 && h < 12) return 'morning';
++  if (h >= 12 && h < 17) return 'afternoon';
++  if (h >= 17 && h < 21) return 'twilight';
++  return 'midnight';
++}
+diff --git a/src/rewards/collectibles.test.ts b/src/rewards/collectibles.test.ts
+new file mode 100644
+index 0000000..aed2c48
+--- /dev/null
++++ b/src/rewards/collectibles.test.ts
+@@ -0,0 +1,13 @@
++import { describe, expect, it } from 'vitest';
++import { COLLECTIBLES, earnedBadges, unlockedFilters } from './collectibles';
++
++describe('rewards', () => {
++  it('unlocks only filters and badges for collected items', () => {
++    expect(unlockedFilters([])).toEqual(['none']);
++    expect(unlockedFilters(['cassette', 'nope'])).toEqual(['none', 'vhs']);
++    expect(earnedBadges(['tamagotchi'])).toEqual(["Mall Rat '99"]);
++  });
++  it('has three collectibles with unique ids', () => {
++    expect(new Set(COLLECTIBLES.map((c) => c.id)).size).toBe(3);
++  });
++});
+diff --git a/src/rewards/collectibles.ts b/src/rewards/collectibles.ts
+new file mode 100644
+index 0000000..1b7a109
+--- /dev/null
++++ b/src/rewards/collectibles.ts
+@@ -0,0 +1,17 @@
++export type ScreenFilter = 'none' | 'crt' | 'vhs' | 'disposable';
++export interface Collectible { id: string; name: string; floor: number; x: number; z: number; badge: string; filter: ScreenFilter; color: string }
++
++/** Tucked into corners: plants by the food court, record-shop corner, cinema lobby. */
++export const COLLECTIBLES: Collectible[] = [
++  { id: 'tamagotchi', name: 'Pixelated 1998 Tamagotchi', floor: 1, x: 16.5, z: 9, badge: "Mall Rat '99", filter: 'crt', color: '#7CFC9A' },
++  { id: 'cassette', name: 'Translucent purple cassette', floor: 1, x: 13, z: -11.5, badge: 'Tape Collector', filter: 'vhs', color: '#b07cff' },
++  { id: 'golden-key', name: 'Vintage golden key', floor: 2, x: 15, z: -10.5, badge: 'Key Keeper', filter: 'disposable', color: '#ffd24a' },
++];
++
++export function unlockedFilters(collected: readonly string[]): ScreenFilter[] {
++  const out: ScreenFilter[] = ['none'];
++  for (const c of COLLECTIBLES) if (collected.includes(c.id)) out.push(c.filter);
++  return out;
++}
++export const earnedBadges = (collected: readonly string[]): string[] =>
++  COLLECTIBLES.filter((c) => collected.includes(c.id)).map((c) => c.badge);
+-- 
+2.43.0
+
+
+From d12bccfd82ace3b2643373f200db78dc07338db4 Mon Sep 17 00:00:00 2001
+From: Aashna <aashna.chakrabortyy@gmail.com>
+Date: Thu, 22 Oct 2026 05:33:21 +0000
+Subject: [PATCH 4/5] Rebuild 3D scene: terrazzo floor, glass shopfronts,
+ animated fountain atrium, kiosk, elevator bank
+
+---
+ src/scene/Atrium.tsx     | 101 ++++++++++++++++++++++++++++++++
+ src/scene/Avatar.tsx     |  15 +++++
+ src/scene/Floor.tsx      | 122 ++++++++++-----------------------------
+ src/scene/Storefront.tsx |  30 ++++++++++
+ src/scene/Walker.tsx     |  53 +++++++++++++++++
+ src/scene/textures.ts    |  15 +++++
+ src/store/useMall.ts     |   9 ++-
+ src/store/usePlayer.ts   |  10 ++++
+ 8 files changed, 263 insertions(+), 92 deletions(-)
+ create mode 100644 src/scene/Atrium.tsx
+ create mode 100644 src/scene/Avatar.tsx
+ create mode 100644 src/scene/Storefront.tsx
+ create mode 100644 src/scene/Walker.tsx
+ create mode 100644 src/scene/textures.ts
+ create mode 100644 src/store/usePlayer.ts
+
+diff --git a/src/scene/Atrium.tsx b/src/scene/Atrium.tsx
+new file mode 100644
+index 0000000..8938e13
+--- /dev/null
++++ b/src/scene/Atrium.tsx
+@@ -0,0 +1,101 @@
++import { Text } from '@react-three/drei';
++import { useFrame } from '@react-three/fiber';
++import { useMemo, useRef } from 'react';
++import * as THREE from 'three';
++import { ELEVATOR, FOUNTAIN_RADIUS, HALF_D } from '../data/layout';
++import type { Collectible } from '../rewards/collectibles';
++
++const PARTICLES = 36;
++
++/** Animated fountain: instanced water droplets on arcs plus three expanding ripple rings. */
++function Fountain() {
++  const drops = useRef<THREE.InstancedMesh>(null);
++  const rings = useRef<THREE.Mesh[]>([]);
++  const dummy = useMemo(() => new THREE.Object3D(), []);
++  useFrame(({ clock }) => {
++    const t = clock.elapsedTime; const m = drops.current; if (!m) return;
++    for (let i = 0; i < PARTICLES; i++) {
++      const a = (i / PARTICLES) * Math.PI * 2; const ph = (t * 0.9 + i * 0.37) % 1; const r = 0.3 + ph * 1.8;
++      dummy.position.set(Math.cos(a) * r, 0.6 + Math.sin(ph * Math.PI) * 1.6, Math.sin(a) * r);
++      dummy.scale.setScalar(0.07); dummy.updateMatrix(); m.setMatrixAt(i, dummy.matrix);
++    }
++    m.instanceMatrix.needsUpdate = true;
++    rings.current.forEach((r, i) => {
++      const ph = (t * 0.4 + i / 3) % 1; r.scale.setScalar(0.6 + ph * 2.2);
++      (r.material as THREE.MeshBasicMaterial).opacity = 0.6 * (1 - ph);
++    });
++  });
++  return (
++    <group>
++      <mesh position={[0, 0.25, 0]}><cylinderGeometry args={[FOUNTAIN_RADIUS, FOUNTAIN_RADIUS + 0.2, 0.5, 40]} /><meshStandardMaterial color="#efe6d6" roughness={0.2} metalness={0.1} /></mesh>
++      <mesh position={[0, 0.51, 0]}><cylinderGeometry args={[FOUNTAIN_RADIUS - 0.2, FOUNTAIN_RADIUS - 0.2, 0.02, 40]} /><meshStandardMaterial color="#7fc6d9" transparent opacity={0.75} roughness={0.05} /></mesh>
++      {[0, 1, 2].map((i) => (
++        <mesh key={i} ref={(el) => { if (el) rings.current[i] = el; }} position={[0, 0.54, 0]} rotation={[-Math.PI / 2, 0, 0]}>
++          <ringGeometry args={[0.9, 1, 48]} /><meshBasicMaterial color="#d9f4ff" transparent opacity={0.5} />
++        </mesh>
++      ))}
++      <instancedMesh ref={drops} args={[undefined, undefined, PARTICLES]}><sphereGeometry args={[1, 8, 8]} /><meshBasicMaterial color="#e6f9ff" /></instancedMesh>
++    </group>
++  );
++}
++
++function Palm({ x, z }: { x: number; z: number }) {
++  return (
++    <group position={[x, 0, z]}>
++      <mesh position={[0, 0.4, 0]}><cylinderGeometry args={[0.6, 0.45, 0.8, 16]} /><meshStandardMaterial color="#2B1E1A" roughness={0.6} /></mesh>
++      <mesh position={[0, 1.6, 0]}><cylinderGeometry args={[0.08, 0.12, 2.4, 8]} /><meshStandardMaterial color="#6b4f35" /></mesh>
++      {[0, 1, 2, 3, 4, 5].map((i) => (
++        <mesh key={i} position={[Math.cos(i * 1.05) * 0.7, 2.9, Math.sin(i * 1.05) * 0.7]} rotation={[0.5 * Math.sin(i * 1.05), -i * 1.05, -0.5 * Math.cos(i * 1.05)]}>
++          <boxGeometry args={[1.8, 0.03, 0.35]} /><meshStandardMaterial color="#4f6b2f" />
++        </mesh>
++      ))}
++    </group>
++  );
++}
++
++function Sofa({ x, z, rotY }: { x: number; z: number; rotY: number }) {
++  return (
++    <group position={[x, 0, z]} rotation={[0, rotY, 0]}>
++      <mesh position={[0, 0.3, 0]}><boxGeometry args={[3, 0.5, 1.2]} /><meshStandardMaterial color="#58111A" roughness={0.95} /></mesh>
++      <mesh position={[0, 0.8, -0.5]}><boxGeometry args={[3, 0.9, 0.3]} /><meshStandardMaterial color="#58111A" roughness={0.95} /></mesh>
++      <mesh position={[0, 0.05, 0]}><boxGeometry args={[3.1, 0.1, 1.3]} /><meshStandardMaterial color="#c5a059" metalness={0.8} roughness={0.3} /></mesh>
++    </group>
++  );
++}
++
++export function CollectibleMesh({ item }: { item: Collectible }) {
++  const ref = useRef<THREE.Mesh>(null);
++  useFrame(({ clock }) => { if (ref.current) { ref.current.rotation.y = clock.elapsedTime * 1.5; ref.current.position.y = 0.9 + Math.sin(clock.elapsedTime * 2) * 0.1; } });
++  return (
++    <mesh ref={ref} position={[item.x, 0.9, item.z]}>
++      <octahedronGeometry args={[0.28]} /><meshStandardMaterial color={item.color} emissive={item.color} emissiveIntensity={0.9} />
++    </mesh>
++  );
++}
++
++interface Props { floor: number; onOpenMap: () => void }
++
++/** Central town square, directory kiosk and the elevator bank. Floor 2 swaps the fountain for a glass void. */
++export function Atrium({ floor, onOpenMap }: Props) {
++  return (
++    <group>
++      {floor === 1 ? <Fountain /> : (
++        <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[FOUNTAIN_RADIUS, 40]} /><meshStandardMaterial color="#0b1220" transparent opacity={0.8} roughness={0.05} /></mesh>
++      )}
++      {[[-7, -6], [7, -6], [-7, 6], [7, 6]].map(([x, z]) => <Palm key={`${x}${z}`} x={x ?? 0} z={z ?? 0} />)}
++      <Sofa x={-8} z={0} rotY={Math.PI / 2} /><Sofa x={0} z={-8} rotY={0} />
++      <group position={[6, 0, 0]} rotation={[0, -Math.PI / 2, 0]} onClick={onOpenMap}
++        onPointerOver={() => { document.body.style.cursor = 'pointer'; }} onPointerOut={() => { document.body.style.cursor = 'auto'; }}>
++        <mesh position={[0, 1.2, 0]}><boxGeometry args={[1.4, 2.4, 0.5]} /><meshStandardMaterial color="#2B1E1A" metalness={0.4} roughness={0.4} /></mesh>
++        <mesh position={[0, 1.6, 0.27]}><planeGeometry args={[1.1, 1.3]} /><meshStandardMaterial color="#0b2a4a" emissive="#3d8fd9" emissiveIntensity={0.9} /></mesh>
++        <Text position={[0, 2, 0.29]} fontSize={0.14} color="#bfe3ff">MALL DIRECTORY</Text>
++        <Text position={[0, 1.4, 0.29]} fontSize={0.12} color="#bfe3ff">click or press M</Text>
++      </group>
++      <group position={[ELEVATOR.x, 0, HALF_D + 0.4]} rotation={[0, Math.PI, 0]}>
++        <mesh position={[0, 2.2, 0]}><boxGeometry args={[4, 4.4, 0.5]} /><meshStandardMaterial color="#6a4a32" metalness={0.7} roughness={0.35} /></mesh>
++        <mesh position={[0, 2, 0.27]}><planeGeometry args={[3.2, 3.8]} /><meshStandardMaterial color="#c9a46a" metalness={0.9} roughness={0.3} /></mesh>
++        <Text position={[0, 4.6, 0.1]} fontSize={0.4} color="#ffd77a" anchorX="center">ELEVATOR</Text>
++      </group>
++    </group>
++  );
++}
+diff --git a/src/scene/Avatar.tsx b/src/scene/Avatar.tsx
+new file mode 100644
+index 0000000..f9a6106
+--- /dev/null
++++ b/src/scene/Avatar.tsx
+@@ -0,0 +1,15 @@
++/** Original low-poly avatar: long golden hair, purple headband, amber shades, lime top, white skirt, brown belt. */
++export function Avatar({ spot }: { spot: number }) {
++  return (
++    <group>
++      <pointLight position={[0, 3, 0]} intensity={spot} distance={14} color="#ffd9a0" />
++      <mesh position={[0, 0.45, 0]}><coneGeometry args={[0.45, 0.8, 16]} /><meshStandardMaterial color="#f4efe2" /></mesh>
++      <mesh position={[0, 0.82, 0]}><cylinderGeometry args={[0.28, 0.3, 0.1, 16]} /><meshStandardMaterial color="#6b3f22" /></mesh>
++      <mesh position={[0, 1.15, 0]}><cylinderGeometry args={[0.26, 0.3, 0.55, 16]} /><meshStandardMaterial color="#c8e04a" /></mesh>
++      <mesh position={[0, 1.7, 0]}><sphereGeometry args={[0.3, 24, 24]} /><meshStandardMaterial color="#e0a96d" /></mesh>
++      <mesh position={[0, 1.65, -0.12]}><boxGeometry args={[0.7, 1.3, 0.3]} /><meshStandardMaterial color="#f2c230" /></mesh>
++      <mesh position={[0, 1.88, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.3, 0.03, 8, 24]} /><meshStandardMaterial color="#8a5cc7" /></mesh>
++      <mesh position={[0, 1.72, 0.28]}><boxGeometry args={[0.4, 0.1, 0.04]} /><meshStandardMaterial color="#ffb43c" transparent opacity={0.8} /></mesh>
++    </group>
++  );
++}
+diff --git a/src/scene/Floor.tsx b/src/scene/Floor.tsx
+index 0e3de4c..e3d5ee1 100644
+--- a/src/scene/Floor.tsx
++++ b/src/scene/Floor.tsx
+@@ -1,97 +1,37 @@
+-import { Canvas, useFrame } from '@react-three/fiber';
+-import { Text } from '@react-three/drei';
+-import { useEffect, useMemo, useRef } from 'react';
+-import * as THREE from 'three';
+-import type { Brand } from '../types';
+-
+-const SPACING = 6;
+-const SPEED = 5;
+-const NEAR = 4.5;
+-
+-export function storefrontPosition(i: number): [number, number, number] {
+-  return [i % 2 === 0 ? -7 : 7, 0, -Math.floor(i / 2) * SPACING];
+-}
+-
+-/** Original low-poly avatar: long golden hair, purple headband, amber shades, lime top, white skirt, brown belt. */
+-function Avatar() {
+-  return (
+-    <group>
+-      <mesh position={[0, 0.45, 0]}><coneGeometry args={[0.45, 0.8, 16]} /><meshStandardMaterial color="#f4efe2" /></mesh>
+-      <mesh position={[0, 0.82, 0]}><cylinderGeometry args={[0.28, 0.3, 0.1, 16]} /><meshStandardMaterial color="#6b3f22" /></mesh>
+-      <mesh position={[0, 1.15, 0]}><cylinderGeometry args={[0.26, 0.3, 0.55, 16]} /><meshStandardMaterial color="#c8e04a" /></mesh>
+-      <mesh position={[0, 1.7, 0]}><sphereGeometry args={[0.3, 24, 24]} /><meshStandardMaterial color="#e0a96d" /></mesh>
+-      <mesh position={[0, 1.65, -0.12]}><boxGeometry args={[0.7, 1.3, 0.3]} /><meshStandardMaterial color="#f2c230" /></mesh>
+-      <mesh position={[0, 1.88, 0]} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[0.3, 0.03, 8, 24]} /><meshStandardMaterial color="#8a5cc7" /></mesh>
+-      <mesh position={[0, 1.72, 0.28]}><boxGeometry args={[0.4, 0.1, 0.04]} /><meshStandardMaterial color="#ffb43c" transparent opacity={0.8} /></mesh>
+-    </group>
+-  );
+-}
+-
+-interface WalkerProps { maxDepth: number; brands: Brand[]; onNearby: (b: Brand | null) => void }
+-
+-function Walker({ maxDepth, brands, onNearby }: WalkerProps) {
+-  const ref = useRef<THREE.Group>(null);
+-  const keys = useRef(new Set<string>());
+-  const last = useRef<string | null>(null);
+-
+-  useEffect(() => {
+-    const down = (e: KeyboardEvent) => keys.current.add(e.key.toLowerCase());
+-    const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
+-    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
+-    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
+-  }, []);
+-
+-  useFrame((state, dt) => {
+-    const g = ref.current; if (!g) return;
+-    const k = keys.current;
+-    const dx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
+-    const dz = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0);
+-    if (dx || dz) {
+-      g.position.addScaledVector(new THREE.Vector3(dx, 0, dz).normalize(), SPEED * dt);
+-      g.position.x = THREE.MathUtils.clamp(g.position.x, -9, 9);
+-      g.position.z = THREE.MathUtils.clamp(g.position.z, -maxDepth, 8);
+-      g.rotation.y = Math.atan2(dx, dz);
+-    }
+-    let nearest: Brand | null = null; let best = NEAR;
+-    brands.forEach((b, i) => {
+-      const [x, , z] = storefrontPosition(i);
+-      const d = Math.hypot(g.position.x - x, g.position.z - z);
+-      if (d < best) { best = d; nearest = b; }
+-    });
+-    const found = nearest as Brand | null;
+-    const id = found ? found.id : null;
+-    if (id !== last.current) { last.current = id; onNearby(found); }
+-    state.camera.position.lerp(new THREE.Vector3(g.position.x * 0.4, 7, g.position.z + 10), 0.08);
+-    state.camera.lookAt(g.position.x * 0.4, 1, g.position.z - 2);
+-  });
+-  return <group ref={ref} position={[0, 0, 4]}><Avatar /></group>;
+-}
+-
+-function Storefront({ brand, index, active }: { brand: Brand; index: number; active: boolean }) {
+-  const pos = storefrontPosition(index);
+-  const rotY = pos[0] < 0 ? Math.PI / 2 : -Math.PI / 2; // local +z faces the corridor
+-  return (
+-    <group position={pos} rotation={[0, rotY, 0]}>
+-      <mesh position={[0, 2, 0]}><boxGeometry args={[5, 4, 1.4]} /><meshStandardMaterial color="#2B1E1A" /></mesh>
+-      <mesh position={[0, 1.4, 0.72]}><planeGeometry args={[4.2, 2.4]} />
+-        <meshStandardMaterial color="#fff3cf" emissive="#ffd9a0" emissiveIntensity={active ? 1.2 : 0.45} /></mesh>
+-      <mesh position={[0, 3.5, 0.72]}><planeGeometry args={[4.4, 0.8]} /><meshStandardMaterial color="#58111A" /></mesh>
+-      <Text position={[0, 3.5, 0.75]} fontSize={0.5} color="#C5A059" anchorX="center" anchorY="middle">{brand.name}</Text>
+-    </group>
+-  );
++import { Canvas } from '@react-three/fiber';
++import { useMemo } from 'react';
++import { HALF_D, HALF_W, type Placed } from '../data/layout';
++import type { LightPreset } from '../lighting/dayCycle';
++import type { Collectible } from '../rewards/collectibles';
++import { usePlayer } from '../store/usePlayer';
++import { Atrium, CollectibleMesh } from './Atrium';
++import { Storefront } from './Storefront';
++import { marbleTexture } from './textures';
++import { Walker } from './Walker';
++
++interface Props {
++  floor: number; slots: Placed[]; items: Collectible[]; preset: LightPreset;
++  onCollect: (id: string) => void; onOpenMap: () => void;
+ }
+ 
+-interface FloorProps { brands: Brand[]; nearbyId: string | null; onNearby: (b: Brand | null) => void }
+-
+-export function Floor({ brands, nearbyId, onNearby }: FloorProps) {
+-  const maxDepth = useMemo(() => Math.max(0, Math.ceil(brands.length / 2) - 1) * SPACING + 2, [brands.length]);
++export function Floor({ floor, slots, items, preset, onCollect, onOpenMap }: Props) {
++  const tex = useMemo(() => marbleTexture(), []);
++  const nearId = usePlayer((s) => s.brandId);
+   return (
+-    <Canvas camera={{ position: [0, 7, 14], fov: 50 }} style={{ background: '#FDFBF7' }}>
+-      <ambientLight intensity={0.8} /><pointLight position={[0, 8, 0]} intensity={60} color="#ffe2b0" />
+-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, -maxDepth / 2 + 4]}>
+-        <planeGeometry args={[24, maxDepth + 30]} /><meshStandardMaterial color="#efe8dc" roughness={0.15} metalness={0.2} /></mesh>
+-      {brands.map((b, i) => <Storefront key={b.id} brand={b} index={i} active={b.id === nearbyId} />)}
+-      <Walker maxDepth={maxDepth} brands={brands} onNearby={onNearby} />
++    <Canvas camera={{ position: [0, 11, HALF_D + 4], fov: 50 }}>
++      <color attach="background" args={[preset.sky]} />
++      <ambientLight intensity={preset.ambient * 0.5} />
++      <hemisphereLight args={[preset.skylight, '#2B1E1A', preset.ambient * 0.6]} />
++      <directionalLight position={[5, 20, 5]} intensity={preset.sun} color={preset.skylight} />
++      <pointLight position={[-12, 4, -8]} intensity={25 * preset.neon} distance={18} color="#ff4fa3" />
++      <pointLight position={[12, 4, 8]} intensity={25 * preset.neon} distance={18} color="#4fc3ff" />
++      <mesh rotation={[-Math.PI / 2, 0, 0]}>
++        <planeGeometry args={[HALF_W * 2 + 4, HALF_D * 2 + 4]} /><meshStandardMaterial map={tex} roughness={0.18} metalness={0.15} />
++      </mesh>
++      <Atrium floor={floor} onOpenMap={onOpenMap} />
++      {slots.map((p) => <Storefront key={p.brand.id} {...p} neon={preset.neon} active={p.brand.id === nearId} />)}
++      {items.map((it) => <CollectibleMesh key={it.id} item={it} />)}
++      <Walker slots={slots} items={items} spot={preset.spot} onCollect={onCollect} />
+     </Canvas>
+   );
+ }
+diff --git a/src/scene/Storefront.tsx b/src/scene/Storefront.tsx
+new file mode 100644
+index 0000000..4e2b53d
+--- /dev/null
++++ b/src/scene/Storefront.tsx
+@@ -0,0 +1,30 @@
++import { Text } from '@react-three/drei';
++import * as THREE from 'three';
++import type { Placed } from '../data/layout';
++
++const ALU = new THREE.MeshStandardMaterial({ color: '#b9bcc2', metalness: 0.85, roughness: 0.35 });
++const WALL = new THREE.MeshStandardMaterial({ color: '#2B1E1A', roughness: 0.7 });
++
++interface Props extends Placed { neon: number; active: boolean }
++
++/** Tall glass shopfront: open interior behind brushed-aluminium framing, lit sign band, neon at night. */
++export function Storefront({ brand, slot, neon, active }: Props) {
++  const signColor = neon > 0.8 ? '#ff4fa3' : '#ffcf7a';
++  return (
++    <group position={[slot.x, 0, slot.z]} rotation={[0, slot.rotY, 0]}>
++      <mesh position={[0, 2.5, -1.4]} material={WALL}><boxGeometry args={[5, 5, 0.2]} /></mesh>
++      <mesh position={[-2.4, 2.5, -0.7]} material={WALL}><boxGeometry args={[0.2, 5, 1.6]} /></mesh>
++      <mesh position={[2.4, 2.5, -0.7]} material={WALL}><boxGeometry args={[0.2, 5, 1.6]} /></mesh>
++      <mesh position={[0, 2, -1.28]}><planeGeometry args={[4.4, 3.6]} />
++        <meshStandardMaterial color="#fff3cf" emissive="#ffd9a0" emissiveIntensity={(active ? 1 : 0.55) + neon * 0.15} /></mesh>
++      <mesh position={[0, 0.7, -0.8]} material={ALU}><boxGeometry args={[4, 0.12, 0.8]} /></mesh>
++      <mesh position={[0, 2, 0.1]}><planeGeometry args={[4.6, 4]} />
++        <meshPhysicalMaterial color="#cfe3ee" transparent opacity={0.16} roughness={0.05} /></mesh>
++      <mesh position={[-2.4, 2, 0.1]} material={ALU}><boxGeometry args={[0.12, 4, 0.14]} /></mesh>
++      <mesh position={[2.4, 2, 0.1]} material={ALU}><boxGeometry args={[0.12, 4, 0.14]} /></mesh>
++      <mesh position={[0, 0.06, 0.1]} material={ALU}><boxGeometry args={[4.9, 0.12, 0.2]} /></mesh>
++      <mesh position={[0, 4.6, 0.1]}><boxGeometry args={[5, 0.8, 0.25]} /><meshStandardMaterial color="#121212" metalness={0.5} roughness={0.4} /></mesh>
++      <Text position={[0, 4.6, 0.25]} fontSize={0.45} color={signColor} anchorX="center" anchorY="middle" material-toneMapped={false}>{brand.name}</Text>
++    </group>
++  );
++}
+diff --git a/src/scene/Walker.tsx b/src/scene/Walker.tsx
+new file mode 100644
+index 0000000..f08170a
+--- /dev/null
++++ b/src/scene/Walker.tsx
+@@ -0,0 +1,53 @@
++import { useFrame } from '@react-three/fiber';
++import { useEffect, useRef } from 'react';
++import * as THREE from 'three';
++import { ELEVATOR, FOUNTAIN_RADIUS, HALF_D, HALF_W, type Placed } from '../data/layout';
++import type { Collectible } from '../rewards/collectibles';
++import { usePlayer } from '../store/usePlayer';
++import { Avatar } from './Avatar';
++
++const SPEED = 5; const NEAR_STORE = 4.5; const NEAR_ITEM = 2.2; const NEAR_LIFT = 2.6;
++
++interface Props { slots: Placed[]; items: Collectible[]; spot: number; onCollect: (id: string) => void }
++
++export function Walker({ slots, items, spot, onCollect }: Props) {
++  const ref = useRef<THREE.Group>(null);
++  const keys = useRef(new Set<string>());
++  const frame = useRef(0);
++
++  useEffect(() => {
++    const down = (e: KeyboardEvent) => {
++      const k = e.key.toLowerCase(); keys.current.add(k);
++      if (k === 'e') { const id = usePlayer.getState().itemId; if (id) onCollect(id); }
++    };
++    const up = (e: KeyboardEvent) => keys.current.delete(e.key.toLowerCase());
++    window.addEventListener('keydown', down); window.addEventListener('keyup', up);
++    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); };
++  }, [onCollect]);
++
++  useFrame((state, dt) => {
++    const g = ref.current; if (!g) return;
++    const k = keys.current; const p = g.position;
++    const dx = (k.has('d') || k.has('arrowright') ? 1 : 0) - (k.has('a') || k.has('arrowleft') ? 1 : 0);
++    const dz = (k.has('s') || k.has('arrowdown') ? 1 : 0) - (k.has('w') || k.has('arrowup') ? 1 : 0);
++    if (dx || dz) {
++      p.addScaledVector(new THREE.Vector3(dx, 0, dz).normalize(), SPEED * dt);
++      p.x = THREE.MathUtils.clamp(p.x, -(HALF_W - 3), HALF_W - 3);
++      p.z = THREE.MathUtils.clamp(p.z, -(HALF_D - 3), HALF_D - 3);
++      const d = Math.hypot(p.x, p.z); const r = FOUNTAIN_RADIUS + 0.6;
++      if (d > 0 && d < r) { p.x *= r / d; p.z *= r / d; }          // walk around the fountain
++      g.rotation.y = Math.atan2(dx, dz);
++    }
++    let brandId: string | null = null; let best = NEAR_STORE;
++    for (const { brand, slot } of slots) { const d = Math.hypot(p.x - slot.x, p.z - slot.z); if (d < best) { best = d; brandId = brand.id; } }
++    let itemId: string | null = null;
++    for (const it of items) if (Math.hypot(p.x - it.x, p.z - it.z) < NEAR_ITEM) itemId = it.id;
++    const atElevator = Math.hypot(p.x - ELEVATOR.x, p.z - ELEVATOR.z) < NEAR_LIFT;
++    const s = usePlayer.getState();
++    if (s.brandId !== brandId || s.itemId !== itemId || s.atElevator !== atElevator) s.patch({ brandId, itemId, atElevator });
++    if (++frame.current % 6 === 0) s.patch({ x: p.x, z: p.z });
++    state.camera.position.lerp(new THREE.Vector3(p.x * 0.5, 11, p.z + 13), 0.08);
++    state.camera.lookAt(p.x * 0.5, 1, p.z - 2);
++  });
++  return <group ref={ref} position={[0, 0, HALF_D - 5]}><Avatar spot={spot} /></group>;
++}
+diff --git a/src/scene/textures.ts b/src/scene/textures.ts
+new file mode 100644
+index 0000000..71beffa
+--- /dev/null
++++ b/src/scene/textures.ts
+@@ -0,0 +1,15 @@
++import * as THREE from 'three';
++
++/** Ivory/cream checkerboard marble with fine terrazzo speckle, drawn once on a canvas. */
++export function marbleTexture(): THREE.CanvasTexture {
++  const c = document.createElement('canvas'); c.width = c.height = 256;
++  const g = c.getContext('2d');
++  if (g) {
++    for (let i = 0; i < 4; i++) { g.fillStyle = (i % 3 === 0) ? '#f4eee2' : '#e4d9c6'; g.fillRect((i % 2) * 128, Math.floor(i / 2) * 128, 128, 128); }
++    for (let i = 0; i < 500; i++) { g.fillStyle = `rgba(${90 + Math.random() * 60},${70 + Math.random() * 40},${60},0.18)`; g.fillRect(Math.random() * 256, Math.random() * 256, 2, 2); }
++    g.strokeStyle = 'rgba(120,100,80,0.25)'; g.strokeRect(0, 0, 256, 256);
++  }
++  const t = new THREE.CanvasTexture(c);
++  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(11, 8); t.colorSpace = THREE.SRGBColorSpace;
++  return t;
++}
+diff --git a/src/store/useMall.ts b/src/store/useMall.ts
+index de36dab..e11c4ce 100644
+--- a/src/store/useMall.ts
++++ b/src/store/useMall.ts
+@@ -1,16 +1,23 @@
+ import { create } from 'zustand';
+ import { persist } from 'zustand/middleware';
++import type { TimeOfDay } from '../lighting/dayCycle';
++import type { ScreenFilter } from '../rewards/collectibles';
+ import type { MoodId } from '../types';
+ 
+ interface MallState {
+   pincode: string | null; floor: number; moods: MoodId[]; saved: string[];
++  collected: string[]; filter: ScreenFilter; time: 'auto' | TimeOfDay;
+   setPincode: (p: string) => void; setFloor: (f: number) => void;
+   toggleMood: (m: MoodId) => void; toggleSaved: (id: string) => void;
++  collect: (id: string) => void; setFilter: (f: ScreenFilter) => void; setTime: (t: 'auto' | TimeOfDay) => void;
+ }
+ export const useMall = create<MallState>()(persist((set) => ({
+-  pincode: null, floor: 1, moods: [], saved: [],
++  pincode: null, floor: 1, moods: [], saved: [], collected: [], filter: 'none', time: 'auto',
+   setPincode: (pincode) => set({ pincode }),
+   setFloor: (floor) => set({ floor }),
+   toggleMood: (m) => set((s) => ({ moods: s.moods.includes(m) ? s.moods.filter((x) => x !== m) : [...s.moods, m] })),
+   toggleSaved: (id) => set((s) => ({ saved: s.saved.includes(id) ? s.saved.filter((x) => x !== id) : [...s.saved, id] })),
++  collect: (id) => set((s) => (s.collected.includes(id) ? {} : { collected: [...s.collected, id] })),
++  setFilter: (filter) => set({ filter }),
++  setTime: (time) => set({ time }),
+ }), { name: 'cybermall-2000' }));
+diff --git a/src/store/usePlayer.ts b/src/store/usePlayer.ts
+new file mode 100644
+index 0000000..223ea04
+--- /dev/null
++++ b/src/store/usePlayer.ts
+@@ -0,0 +1,10 @@
++import { create } from 'zustand';
++
++/** Live avatar state written by the 3D loop: position ~10x/sec, proximity flags only when they change. */
++interface PlayerState {
++  x: number; z: number; brandId: string | null; itemId: string | null; atElevator: boolean;
++  patch: (p: Partial<Omit<PlayerState, 'patch'>>) => void;
++}
++export const usePlayer = create<PlayerState>((set) => ({
++  x: 0, z: 10, brandId: null, itemId: null, atElevator: false, patch: (p) => set(p),
++}));
+-- 
+2.43.0
+
+
+From 8156820a6f6fae6f995ef13fcb43d93f839d590c Mon Sep 17 00:00:00 2001
+From: Aashna <aashna.chakrabortyy@gmail.com>
+Date: Thu, 22 Oct 2026 05:33:21 +0000
+Subject: [PATCH 5/5] Elevator bank, mall map, analytics dashboard, settings,
+ collectibles and App wiring
+
+---
+ README.md                | 13 ++++---
+ src/App.tsx              | 73 ++++++++++++++++++++++++++++++++--------
+ src/styles/app.css       | 18 ++++++++++
+ src/ui/BrandCard.tsx     | 21 ++++++++++--
+ src/ui/Dashboard.tsx     | 40 ++++++++++++++++++++++
+ src/ui/ElevatorPanel.tsx | 10 +++---
+ src/ui/MallMap.tsx       | 38 +++++++++++++++++++++
+ src/ui/SettingsPanel.tsx | 24 +++++++++++++
+ 8 files changed, 212 insertions(+), 25 deletions(-)
+ create mode 100644 src/ui/Dashboard.tsx
+ create mode 100644 src/ui/MallMap.tsx
+ create mode 100644 src/ui/SettingsPanel.tsx
+
+diff --git a/README.md b/README.md
+index 4ceca9f..269a66a 100644
+--- a/README.md
++++ b/README.md
+@@ -1,10 +1,15 @@
+ # CyberMall 2000
+-Mood-first 3D digital mall (laptop only: keyboard + mouse). React + TypeScript + Three.js.
++Mood-first 3D digital mall for fashion discovery (laptop only: keyboard + mouse). React + TypeScript + Three.js.
+ 
+     npm install
+     npm run dev        # http://localhost:5173
+-    npm test           # recommendation + pincode unit tests
++    npm test
+     npm run typecheck
+ 
+-Tune scoring in `src/recommendation/weights.ts`. Brand logos load at runtime from the web; a text wordmark shows if offline.
+-Git identity is set per-repo to Aashna (`git config user.name`).
++## What is in it
++- Two floors around a central atrium (animated fountain, palms, velvet seating, directory kiosk) and an elevator bank.
++- Wings: apparel, books and stationery, accessories, food, wellness (floor 1); tech, living, luxury archives, cinema, collectibles (floor 2).
++- Pincode delivery engine and a transparent weighted recommendation engine (`src/recommendation/weights.ts`).
++- Blueprint "you are here" map (press M), day-to-night lighting, hidden collectibles that unlock badges and screen filters.
++- Event telemetry (`src/telemetry`) feeding an analytics dashboard with CSV export.
++- Brand logos load at runtime from the web; a text wordmark shows if offline.
+diff --git a/src/App.tsx b/src/App.tsx
+index e6e3a1a..cf409cf 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,11 +1,19 @@
+-import { useMemo, useState } from 'react';
++import { useCallback, useEffect, useMemo, useState } from 'react';
+ import { BRANDS, FLOORS, MOODS } from './data/catalog';
++import { placeStores } from './data/layout';
++import { PRESETS, timeOfDayFromHour } from './lighting/dayCycle';
+ import { isValidPincode } from './location/pincode';
++import { COLLECTIBLES } from './rewards/collectibles';
+ import { Floor } from './scene/Floor';
+ import { useMall } from './store/useMall';
++import { usePlayer } from './store/usePlayer';
++import { track } from './telemetry';
+ import { BrandCard } from './ui/BrandCard';
++import { Dashboard } from './ui/Dashboard';
+ import { ElevatorPanel } from './ui/ElevatorPanel';
+-import type { Brand, UserProfile } from './types';
++import { MallMap } from './ui/MallMap';
++import { SettingsPanel } from './ui/SettingsPanel';
++import type { UserProfile } from './types';
+ 
+ function Lobby({ onEnter }: { onEnter: (p: string) => void }) {
+   const [value, setValue] = useState('');
+@@ -22,21 +30,58 @@ function Lobby({ onEnter }: { onEnter: (p: string) => void }) {
+ }
+ 
+ export default function App() {
+-  const { pincode, floor, moods, saved, setPincode, setFloor, toggleMood, toggleSaved } = useMall();
+-  const [near, setNear] = useState<Brand | null>(null);
+-  const brands = useMemo(() => BRANDS.filter((b) => b.floor === floor), [floor]);
+-  const category = FLOORS.find((f) => f.floor === floor)?.category ?? null;
+-  if (!pincode) return <Lobby onEnter={setPincode} />;
+-  const profile: UserProfile = { pincode, moods, colors: [], category, budget: null };
++  const { pincode, floor, moods, saved, collected, filter, time, setPincode, setFloor, toggleMood, toggleSaved, collect } = useMall();
++  const brandId = usePlayer((s) => s.brandId); const itemId = usePlayer((s) => s.itemId); const atElevator = usePlayer((s) => s.atElevator);
++  const [mapOpen, setMapOpen] = useState(false); const [dashOpen, setDashOpen] = useState(false);
++  const [dismissed, setDismissed] = useState(false); const [transition, setTransition] = useState<number | null>(null);
++  const [toast, setToast] = useState<string | null>(null);
++
++  const slots = useMemo(() => placeStores(floor), [floor]);
++  const items = useMemo(() => COLLECTIBLES.filter((c) => c.floor === floor && !collected.includes(c.id)), [floor, collected]);
++  const preset = PRESETS[time === 'auto' ? timeOfDayFromHour(new Date().getHours()) : time];
++  const brand = BRANDS.find((b) => b.id === brandId);
++  const item = COLLECTIBLES.find((c) => c.id === itemId);
++
++  useEffect(() => { if (!atElevator) setDismissed(false); }, [atElevator]);
++  const openMap = useCallback(() => { setMapOpen(true); track('MAP_OPENED'); }, []);
++  useEffect(() => {
++    const h = (e: KeyboardEvent) => { if (e.key.toLowerCase() === 'm' && pincode) { setMapOpen((o) => { if (!o) track('MAP_OPENED'); return !o; }); } };
++    window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h);
++  }, [pincode]);
++
++  const onCollect = useCallback((id: string) => {
++    const c = COLLECTIBLES.find((x) => x.id === id);
++    if (!c || collected.includes(id)) return;
++    collect(id); track('EASTER_EGG_FOUND', { itemId: id, floor: c.floor });
++    setToast(`Collected: ${c.name}. Badge unlocked: ${c.badge}`); setTimeout(() => setToast(null), 3500);
++  }, [collected, collect]);
++
++  const changeFloor = (f: number) => {
++    if (f === floor || transition !== null) return;
++    track('FLOOR_CHANGED', { from: floor, to: f });
++    setTransition(f); setTimeout(() => setFloor(f), 600); setTimeout(() => setTransition(null), 1200);
++  };
++
++  if (!pincode) return <Lobby onEnter={(p) => { setPincode(p); track('PINCODE_UPDATED', { pincode: p }); }} />;
++  const profile: UserProfile = { pincode, moods, colors: [], category: null, budget: null };
+   return (
+-    <div className="stage">
+-      <Floor key={floor} brands={brands} nearbyId={near?.id ?? null} onNearby={setNear} />
+-      <ElevatorPanel floor={floor} onSelect={(f) => { setNear(null); setFloor(f); }} />
++    <div className={`stage f-${filter}`}>
++      <Floor key={floor} floor={floor} slots={slots} items={items} preset={preset} onCollect={onCollect} onOpenMap={openMap} />
++      {atElevator && !dismissed && <ElevatorPanel floor={floor} onSelect={changeFloor} onClose={() => setDismissed(true)} />}
+       <div className="moods" role="group" aria-label="Moods">
+-        {MOODS.map((m) => <button key={m.id} className={`chip ${moods.includes(m.id) ? 'on' : ''}`} title={m.blurb} onClick={() => toggleMood(m.id)}>{m.title}</button>)}
++        {MOODS.map((m) => (
++          <button key={m.id} className={`chip ${moods.includes(m.id) ? 'on' : ''}`} title={m.blurb}
++            onClick={() => { if (!moods.includes(m.id)) track('MOOD_SELECTED', { moodId: m.id }); toggleMood(m.id); }}>{m.title}</button>
++        ))}
+       </div>
+-      <div className="hint">Move with WASD or arrow keys. Walk up to a store.</div>
+-      {near && <BrandCard brand={near} profile={profile} saved={saved} onSave={toggleSaved} />}
++      <SettingsPanel onMap={openMap} onDashboard={() => setDashOpen(true)} />
++      <div className="hint">Floor {floor}: {FLOORS.find((f) => f.floor === floor)?.label}. WASD or arrows to walk, M for the map, the lift is at the bottom.</div>
++      {item && <div className="collect">Inspect / Collect [E]: {item.name}</div>}
++      {toast && <div className="collect">{toast}</div>}
++      {brand && !atElevator && <BrandCard key={brand.id} brand={brand} profile={profile} saved={saved} onSave={toggleSaved} />}
++      {mapOpen && <MallMap slots={slots} pincode={pincode} onClose={() => setMapOpen(false)} />}
++      {dashOpen && <Dashboard onClose={() => setDashOpen(false)} />}
++      {transition !== null && <div className="veil">Floor {transition}: {FLOORS.find((f) => f.floor === transition)?.label}</div>}
+     </div>
+   );
+ }
+diff --git a/src/styles/app.css b/src/styles/app.css
+index 149a66a..c20c7a0 100644
+--- a/src/styles/app.css
++++ b/src/styles/app.css
+@@ -23,3 +23,21 @@ h1,h2,h3{font-family:var(--serif);margin:0}
+ .rec{border-top:1px solid #e3d9c8;padding:10px 0;font-size:14px}.rec small{display:block;color:#6a5a52;margin:4px 0 8px}
+ .hint{position:absolute;left:20px;bottom:20px;font-size:13px;background:var(--ivory);padding:6px 10px;border:1px solid var(--gold)}
+ @media (prefers-reduced-motion:reduce){*{transition:none!important}}
++.paneltitle{color:var(--gold);font-size:14px;letter-spacing:3px;margin-bottom:6px}
++.plate small{display:block;font:11px var(--sans);opacity:.75;margin-top:2px}
++.settings{position:absolute;top:70px;right:20px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:620px}
++.settings select{padding:6px;border:1px solid var(--burgundy);background:var(--ivory)} .settings small{background:var(--ivory);padding:4px 8px}
++.collect{position:absolute;left:50%;bottom:70px;transform:translateX(-50%);background:var(--black);color:var(--gold);padding:10px 18px;border:1px solid var(--gold)}
++.modal{position:absolute;inset:0;background:#000a;display:grid;place-content:center;z-index:5}
++.mapbox,.dash{background:var(--ivory);padding:18px;max-height:92vh;overflow:auto}
++.mapbox svg{display:block;margin:10px 0}
++.dash{width:min(980px,94vw)} .dash header{display:flex;justify-content:space-between;align-items:center}
++.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
++.kpi{border:1px solid var(--espresso);padding:12px}.kpi small{display:block;color:#6a5a52}.kpi strong{font:700 28px var(--serif)}
++.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
++.bar{display:grid;grid-template-columns:170px 1fr 36px;align-items:center;gap:8px;font-size:13px;margin:4px 0}
++.bar i{display:block;height:10px;background:var(--burgundy)} .bar b{text-align:right} .muted{color:#6a5a52}
++.veil{position:absolute;inset:0;background:var(--black);color:var(--gold);display:grid;place-content:center;font:700 34px var(--serif);z-index:9;animation:veil 1.2s ease}
++@keyframes veil{0%{opacity:0}35%,65%{opacity:1}100%{opacity:0}}
++.stage.f-vhs canvas{filter:sepia(.3) contrast(1.1) saturate(1.25)} .stage.f-disposable canvas{filter:saturate(1.5) contrast(1.15) hue-rotate(-10deg)}
++.stage.f-crt::after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(transparent 0 2px,rgba(0,0,0,.2) 2px 3px)}
+diff --git a/src/ui/BrandCard.tsx b/src/ui/BrandCard.tsx
+index 4b61e0b..6f52920 100644
+--- a/src/ui/BrandCard.tsx
++++ b/src/ui/BrandCard.tsx
+@@ -1,6 +1,8 @@
+-import { PRODUCTS, BRANDS } from '../data/catalog';
++import { useEffect } from 'react';
++import { BRANDS, PRODUCTS } from '../data/catalog';
+ import { deliversTo } from '../location/pincode';
+ import { recommend } from '../recommendation/engine';
++import { track } from '../telemetry';
+ import type { Brand, UserProfile } from '../types';
+ import { BrandLogo } from './BrandLogo';
+ 
+@@ -9,6 +11,18 @@ interface Props { brand: Brand; profile: UserProfile; saved: string[]; onSave: (
+ export function BrandCard({ brand, profile, saved, onSave }: Props) {
+   const ok = deliversTo(brand.supportedPincodes, profile.pincode);
+   const recs = recommend(PRODUCTS.filter((x) => x.brandId === brand.id), BRANDS, profile).slice(0, 3);
++
++  useEffect(() => {
++    track('STORE_VISITED', { brandId: brand.id, category: brand.category, delivers: ok });
++    recs.forEach((r) => track('RECOMMENDATION_IMPRESSION', { productId: r.product.id, brandId: brand.id, category: r.product.category }));
++    const top = recs[0]; if (top) track('PRODUCT_VIEWED', { productId: top.product.id, brandId: brand.id });
++  }, [brand.id]); // fire once per store visit
++
++  const save = (productId: string, category: string) => {
++    track('RECOMMENDATION_CLICKED', { productId, brandId: brand.id, category });
++    if (!saved.includes(productId)) track('PRODUCT_SAVED', { productId, brandId: brand.id, category });
++    onSave(productId);
++  };
+   return (
+     <aside className="card" aria-live="polite">
+       <header>
+@@ -21,10 +35,11 @@ export function BrandCard({ brand, profile, saved, onSave }: Props) {
+         <div className="rec" key={r.product.id}>
+           <strong>{r.product.name}</strong> · ₹{r.product.price.toLocaleString('en-IN')} · score {r.score.toFixed(2)}
+           <small>Recommended because it {r.reasons.join(', ')}.</small>
+-          <button className="btn" onClick={() => onSave(r.product.id)}>{saved.includes(r.product.id) ? 'Saved' : 'Save to lookbook'}</button>
++          <button className="btn" onClick={() => save(r.product.id, r.product.category)}>{saved.includes(r.product.id) ? 'Saved' : 'Save to lookbook'}</button>
+         </div>
+       ))}
+-      <p><a href={brand.url} target="_blank" rel="noopener noreferrer">Visit {brand.name}</a></p>
++      <p><a href={brand.url} target="_blank" rel="noopener noreferrer"
++        onClick={() => track('EXTERNAL_ROUTE_CLICKED', { brandId: brand.id, category: brand.category })}>Visit {brand.name}</a></p>
+     </aside>
+   );
+ }
+diff --git a/src/ui/Dashboard.tsx b/src/ui/Dashboard.tsx
+new file mode 100644
+index 0000000..b3846ba
+--- /dev/null
++++ b/src/ui/Dashboard.tsx
+@@ -0,0 +1,40 @@
++import { useMemo } from 'react';
++import { countBy, funnel, impressionsVsClicks, kpis } from '../telemetry/aggregate';
++import { toCsv } from '../telemetry/csv';
++import { telemetry } from '../telemetry';
++
++const pct = (v: number): string => `${(v * 100).toFixed(1)}%`;
++
++function Bars({ rows }: { rows: { label: string; value: number }[] }) {
++  const max = Math.max(1, ...rows.map((r) => r.value));
++  if (rows.length === 0) return <p className="muted">No data yet. Explore the mall to generate events.</p>;
++  return <>{rows.map((r) => (
++    <div className="bar" key={r.label}><span>{r.label}</span><i style={{ width: `${(r.value / max) * 100}%` }} /><b>{r.value}</b></div>
++  ))}</>;
++}
++
++export function Dashboard({ onClose }: { onClose: () => void }) {
++  const events = useMemo(() => telemetry.read(), []);
++  const k = kpis(events);
++  const download = () => {
++    const url = URL.createObjectURL(new Blob([toCsv(events)], { type: 'text/csv' }));
++    const a = document.createElement('a'); a.href = url; a.download = 'cybermall-events.csv'; a.click(); URL.revokeObjectURL(url);
++  };
++  return (
++    <div className="modal" role="dialog" aria-label="Analytics dashboard">
++      <div className="dash">
++        <header><h2>Analytics</h2><span><button className="btn" onClick={download}>Export CSV</button> <button className="btn" onClick={onClose}>Close</button></span></header>
++        <div className="kpis">
++          {[['Total interactions', String(k.totalInteractions)], ['Unique mood sessions', String(k.uniqueMoodSessions)], ['Click-through rate', pct(k.ctr)], ['Mood-to-save', pct(k.moodToSave)]]
++            .map(([l, v]) => <div className="kpi" key={l}><small>{l}</small><strong>{v}</strong></div>)}
++        </div>
++        <div className="grid">
++          <section><h3>Mood engagement</h3><Bars rows={countBy(events, 'MOOD_SELECTED', 'moodId').map((r) => ({ label: r.key, value: r.count }))} /></section>
++          <section><h3>Impressions vs clicks</h3><Bars rows={impressionsVsClicks(events).flatMap((r) => [{ label: `${r.category} impressions`, value: r.impressions }, { label: `${r.category} clicks`, value: r.clicks }])} /></section>
++          <section><h3>Conversion funnel (sessions)</h3><Bars rows={funnel(events).map((f) => ({ label: f.stage, value: f.sessions }))} /></section>
++          <section><h3>Pincode checks</h3><Bars rows={countBy(events, 'PINCODE_UPDATED', 'pincode').map((r) => ({ label: r.key, value: r.count }))} /></section>
++        </div>
++      </div>
++    </div>
++  );
++}
+diff --git a/src/ui/ElevatorPanel.tsx b/src/ui/ElevatorPanel.tsx
+index c89871d..fdb5b64 100644
+--- a/src/ui/ElevatorPanel.tsx
++++ b/src/ui/ElevatorPanel.tsx
+@@ -1,17 +1,19 @@
+ import { FLOORS } from '../data/catalog';
+ 
+-interface Props { floor: number; onSelect: (floor: number) => void }
++interface Props { floor: number; onSelect: (floor: number) => void; onClose: () => void }
+ 
+-/** Bronze panel: category plate beside a numbered button; the active floor glows amber. */
+-export function ElevatorPanel({ floor, onSelect }: Props) {
++/** Bronze lift panel: category plate beside a numbered button; the active floor glows amber. */
++export function ElevatorPanel({ floor, onSelect, onClose }: Props) {
+   return (
+     <nav className="panel" aria-label="Elevator">
++      <h3 className="paneltitle">SELECT FLOOR</h3>
+       {[...FLOORS].reverse().map((f) => (
+         <div key={f.floor} className={`row ${f.floor === floor ? 'active' : ''}`}>
+           <button className="btnnum" aria-label={`Floor ${f.floor}: ${f.label}`} onClick={() => onSelect(f.floor)}>{f.floor}</button>
+-          <button className="plate" onClick={() => onSelect(f.floor)}>{f.label}</button>
++          <button className="plate" onClick={() => onSelect(f.floor)}>{f.label}<small>{f.wings}</small></button>
+         </div>
+       ))}
++      <button className="btn" onClick={onClose}>Close</button>
+     </nav>
+   );
+ }
+diff --git a/src/ui/MallMap.tsx b/src/ui/MallMap.tsx
+new file mode 100644
+index 0000000..6758e69
+--- /dev/null
++++ b/src/ui/MallMap.tsx
+@@ -0,0 +1,38 @@
++import { useState } from 'react';
++import { ELEVATOR, FOUNTAIN_RADIUS, HALF_D, HALF_W, type Placed } from '../data/layout';
++import { deliversTo } from '../location/pincode';
++import { usePlayer } from '../store/usePlayer';
++
++interface Props { slots: Placed[]; pincode: string | null; onClose: () => void }
++
++/** Blueprint map. The pin follows the avatar; click a store for delivery status and a dashed route. */
++export function MallMap({ slots, pincode, onClose }: Props) {
++  const x = usePlayer((s) => s.x); const z = usePlayer((s) => s.z);
++  const [pick, setPick] = useState<string | null>(null);
++  const target = slots.find((p) => p.brand.id === pick);
++  return (
++    <div className="modal" role="dialog" aria-label="Mall map">
++      <div className="mapbox">
++        <button className="btn" onClick={onClose}>Close (M)</button>
++        <svg viewBox="-23 -17 46 34" width="760">
++          <rect x="-23" y="-17" width="46" height="34" fill="#0b2a4a" />
++          <rect x={-HALF_W} y={-HALF_D} width={HALF_W * 2} height={HALF_D * 2} fill="none" stroke="#7fc6ff" strokeWidth="0.15" />
++          <circle cx="0" cy="0" r={FOUNTAIN_RADIUS} fill="none" stroke="#7fc6ff" strokeWidth="0.15" strokeDasharray="0.4" />
++          <text x="0" y="0.3" fontSize="0.9" fill="#7fc6ff" textAnchor="middle">ATRIUM</text>
++          <rect x={ELEVATOR.x - 2} y={ELEVATOR.z} width="4" height="1.4" fill="#c9a46a" />
++          <text x={ELEVATOR.x} y={ELEVATOR.z - 0.5} fontSize="0.8" fill="#ffd77a" textAnchor="middle">LIFT</text>
++          {target && <line x1={x} y1={z} x2={target.slot.x} y2={target.slot.z} stroke="#ffd77a" strokeWidth="0.2" strokeDasharray="0.6" />}
++          {slots.map(({ brand, slot }) => (
++            <g key={brand.id} onClick={() => setPick(brand.id)} style={{ cursor: 'pointer' }}>
++              <circle cx={slot.x} cy={slot.z} r="0.8" fill={pick === brand.id ? '#ffd77a' : '#7fc6ff'} />
++              <text x={slot.x} y={slot.z + (slot.z > 0 ? -1.2 : 2)} fontSize="0.9" fill="#fff" textAnchor="middle">{brand.name}</text>
++            </g>
++          ))}
++          <circle cx={x} cy={z} r="0.7" fill="#ff4fa3"><animate attributeName="r" values="0.5;1.1;0.5" dur="1.6s" repeatCount="indefinite" /></circle>
++          <text x={x} y={z - 1.3} fontSize="0.9" fill="#ff4fa3" textAnchor="middle" fontWeight="bold">YOU ARE HERE</text>
++        </svg>
++        {target && <p>{target.brand.name}: {deliversTo(target.brand.supportedPincodes, pincode) ? `delivers to ${pincode}` : `does not deliver to ${pincode}`}. Dashed line shows the way.</p>}
++      </div>
++    </div>
++  );
++}
+diff --git a/src/ui/SettingsPanel.tsx b/src/ui/SettingsPanel.tsx
+new file mode 100644
+index 0000000..849c63e
+--- /dev/null
++++ b/src/ui/SettingsPanel.tsx
+@@ -0,0 +1,24 @@
++import { PRESETS, type TimeOfDay } from '../lighting/dayCycle';
++import { earnedBadges, unlockedFilters, type ScreenFilter } from '../rewards/collectibles';
++import { useMall } from '../store/useMall';
++
++interface Props { onMap: () => void; onDashboard: () => void }
++
++export function SettingsPanel({ onMap, onDashboard }: Props) {
++  const { time, filter, collected, setTime, setFilter } = useMall();
++  const badges = earnedBadges(collected);
++  return (
++    <div className="settings">
++      <button className="chip" onClick={onMap}>Map (M)</button>
++      <button className="chip" onClick={onDashboard}>Analytics</button>
++      <select aria-label="Time of day" value={time} onChange={(e) => setTime(e.target.value as 'auto' | TimeOfDay)}>
++        <option value="auto">Time: local clock</option>
++        {(Object.keys(PRESETS) as TimeOfDay[]).map((t) => <option key={t} value={t}>{PRESETS[t].label}</option>)}
++      </select>
++      <select aria-label="Screen filter" value={filter} onChange={(e) => setFilter(e.target.value as ScreenFilter)}>
++        {unlockedFilters(collected).map((f) => <option key={f} value={f}>{f === 'none' ? 'Filter: none' : `Filter: ${f}`}</option>)}
++      </select>
++      <small>{collected.length}/3 found{badges.length ? ` · ${badges.join(' · ')}` : ''}</small>
++    </div>
++  );
++}
+-- 
+2.43.0
+
