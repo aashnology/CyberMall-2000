@@ -13,3 +13,6 @@ Mood-first 3D digital mall for fashion discovery (laptop only: keyboard + mouse)
 - Blueprint "you are here" map (press M), day-to-night lighting, hidden collectibles that unlock badges and screen filters.
 - Event telemetry (`src/telemetry`) feeding an analytics dashboard with CSV export.
 - Brand logos load at runtime from the web; a text wordmark shows if offline.
+
+## Datasets
+Pincodes (Kaggle)[https://www.kaggle.com/datasets/utkarshrahane/india-pincodes]
