@@ -1,0 +1,34 @@
+import { writeFileSync } from 'node:fs';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import { Resvg } from '@resvg/resvg-js';
+import { DEFAULT_CONCOURSE as S, layoutFloor, concourseToWorld } from '../src/spatial/concourse';
+import { renderMarbleFloor } from '../src/render/marbleFloor';
+import { drawScene } from '../src/scene/drawScene';
+import { buildDirectory, parsePincode } from '../src/engine/pincode';
+import { eligiblePromos } from '../src/engine/banners';
+import { SAMPLE_CATALOG } from '../src/data/catalog.sample';
+import { skyAt } from '../src/scene/timeOfDay';
+import { DEFAULT_AVATAR } from '../src/avatar/config';
+import { renderAvatarSvg } from '../src/avatar/renderAvatar';
+import { worldToScreen } from '../src/scene/camera';
+
+const p = parsePincode('560034'); if (!p.ok) throw new Error('pin');
+const dir = buildDirectory(SAMPLE_CATALOG, { pincode: p.pincode, onlyDeliverable: false });
+const entries = dir.byFloor[5];
+const layout = layoutFloor(entries.length, S);
+const ppu = 8, size = Math.ceil((layout.radius + S.walkwayWidth / 2 + 3) * 2 * ppu);
+const img = renderMarbleFloor({ width: size, height: size, pxPerUnit: ppu, spec: S, radius: layout.radius });
+const fc = createCanvas(size, size); const fctx = fc.getContext('2d'); const id = fctx.createImageData(size, size); id.data.set(img.data); fctx.putImageData(id, 0, 0);
+const W = 1280, H = 720, zoom = 17;
+const here = concourseToWorld(S, layout.radius, 0.34, 1);
+const cam = { cx: here.x, cy: here.y, zoom };
+const c = createCanvas(W, H); const ctx = c.getContext('2d');
+drawScene(ctx as unknown as CanvasRenderingContext2D, { width: W, height: H, camera: cam, spec: S, layout, entries, floorId: 5, pincode: p.pincode,
+  floorLayer: { image: fc as unknown as CanvasImageSource, extent: size / ppu }, sky: skyAt(18.2), timeMs: 4100, banners: eligiblePromos(dir), hoverIndex: 7 });
+const svg = renderAvatarSvg(DEFAULT_AVATAR, { phase: 0.25, walking: true, facing: 'right' }, 'mv');
+const ah = 4.6 * zoom, aw = ah * 200 / 320;
+const av = await loadImage(new Resvg(svg, { fitTo: { mode: 'width', value: Math.round(aw * 2) } }).render().asPng());
+const s = worldToScreen(cam, W, H, here.x, here.y);
+ctx.drawImage(av, s.sx - aw / 2, s.sy - ah * 0.94, aw, ah);
+writeFileSync('/tmp/composite.png', c.toBuffer('image/png'));
+console.log('ok');
