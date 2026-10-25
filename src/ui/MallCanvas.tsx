@@ -4,7 +4,8 @@ import { drawScene, landmarkPositions, type FloorLayer } from '../scene/drawScen
 import { clampZoom, screenToWorld, worldToScreen, type Camera } from '../scene/camera';
 import { initialWalker, NO_INPUT, setTarget, stepWalker, type KeyInput, type Walker } from '../scene/movement';
 import { nearestPlacement } from '../scene/interaction';
-import { skyAt } from '../scene/timeOfDay';
+import { skyboxFor, type SkyboxState } from '../scene/skybox';
+import { ParticleField } from '../scene/particles';
 import { renderAvatarSvg } from '../avatar/renderAvatar';
 import type { DirectoryEntry } from '../engine/pincode';
 import type { BannerPromo } from '../engine/banners';
@@ -43,6 +44,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
   const floorLayer = useRef<FloorLayer | null>(null);
   const pendingElevator = useRef(false);
   const impressions = useRef(new ImpressionTracker());
+  const particles = useRef(new ParticleField());
   const dwell = useRef(new DwellTracker());
   const live = useRef({ layout, entries, floorId, pincode, banners });
   live.current = { layout, entries, floorId, pincode, banners };
@@ -119,6 +121,8 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
     let lastPublish = 0;
     let lastImpressionScan = 0;
     let lastAudioScan = 0;
+    let lastSkyAt = -1e9;
+    let skybox: SkyboxState | null = null;
     let W = 0, H = 0;
 
     const resize = (): void => {
@@ -128,6 +132,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
       canvas.width = Math.floor(W * dpr); canvas.height = Math.floor(H * dpr);
       canvas.style.width = `${W}px`; canvas.style.height = `${H}px`;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      particles.current.resize(W, H);
     };
     resize();
     const ro = new ResizeObserver(resize);
@@ -146,10 +151,17 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
       const k = Math.min(1, dt * 6);
       cam.current = { cx: c.cx + (here.x - c.cx) * k, cy: c.cy + (here.y - c.cy) * k, zoom: c.zoom + (zoom.current - c.zoom) * Math.min(1, dt * 8) };
 
-      const hourNow = st.autoClock ? new Date().getHours() + new Date().getMinutes() / 60 : st.hour;
+      // device clock → season + day/night; re-evaluated twice a second (the slider only overrides the hour)
+      if (skybox === null || now - lastSkyAt > 500) {
+        lastSkyAt = now;
+        const next = skyboxFor(new Date(), st.autoClock ? null : st.hour);
+        if (skybox === null || next.particles.kind !== skybox.particles.kind || next.particles.intensity !== skybox.particles.intensity) particles.current.configure(next.particles.kind, next.particles.intensity);
+        skybox = next;
+      }
+      particles.current.step(dt, 6);
       drawScene(ctx, {
         width: W, height: H, camera: cam.current, spec: SPEC, layout: L.layout, entries: L.entries, floorId: L.floorId,
-        pincode: L.pincode, floorLayer: floorLayer.current, sky: skyAt(hourNow), timeMs: now, banners: L.banners, hoverIndex: hover.current,
+        pincode: L.pincode, floorLayer: floorLayer.current, skybox: skybox as SkyboxState, particles: particles.current, timeMs: now, banners: L.banners, hoverIndex: hover.current,
       });
 
       // spatial audio: distance to the nearest storefront drives the bed crossfade

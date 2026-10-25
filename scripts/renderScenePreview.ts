@@ -6,9 +6,11 @@ import { drawScene, type SceneState } from '../src/scene/drawScene';
 import { buildDirectory, parsePincode } from '../src/engine/pincode';
 import { eligiblePromos } from '../src/engine/banners';
 import { SAMPLE_CATALOG } from '../src/data/catalog.sample';
-import { skyAt } from '../src/scene/timeOfDay';
+import { skyboxAt } from '../src/scene/skybox';
+import { ParticleField } from '../src/scene/particles';
 
-const [, , out = '/tmp/scene.png', floorArg = '1', hourArg = '12', pinArg = '400058', zoomArg = '14', tArg = '0.5'] = process.argv;
+// usage: tsx scripts/renderScenePreview.ts out.png floor 'YYYY-MM-DDTHH:MM' pin zoom t
+const [, , out = '/tmp/scene.png', floorArg = '1', whenArg = '2026-06-15T12:00', pinArg = '400058', zoomArg = '14', tArg = '0.5'] = process.argv;
 const floorId = Number(floorArg) as 1;
 const parsed = parsePincode(pinArg);
 if (!parsed.ok) throw new Error('bad pin');
@@ -27,6 +29,9 @@ fctx.putImageData(id, 0, 0);
 
 const c = createCanvas(W, H);
 const ctx = c.getContext('2d');
+const skybox = skyboxAt(new Date(whenArg));
+const field = new ParticleField(); field.resize(W, H); field.configure(skybox.particles.kind, skybox.particles.intensity);
+for (let i = 0; i < 60 * 8; i += 1) field.step(1 / 60, 6); // let 8 seconds of weather settle
 const t = Number(tArg);
 const ang = S.startAngle + S.sweep * t;
 const half = S.walkwayWidth / 2;
@@ -34,7 +39,7 @@ const st: SceneState = {
   width: W, height: H, camera: { cx: Math.cos(ang) * layout.radius, cy: Math.sin(ang) * layout.radius, zoom: Number(zoomArg) },
   spec: S, layout, entries, floorId, pincode: parsed.pincode,
   floorLayer: { image: fc as unknown as CanvasImageSource, extent: size / ppu },
-  sky: skyAt(Number(hourArg)), timeMs: 2300, banners: eligiblePromos(dir), hoverIndex: -1,
+  skybox, particles: field, timeMs: 2300, banners: eligiblePromos(dir), hoverIndex: -1,
 };
 void half;
 drawScene(ctx as unknown as CanvasRenderingContext2D, st);

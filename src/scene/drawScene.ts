@@ -13,7 +13,9 @@ import type { ConcourseSpec, FloorLayout } from '../spatial/concourse';
 import { concourseToWorld } from '../spatial/concourse';
 import type { DirectoryEntry } from '../engine/pincode';
 import type { Pincode, FloorId } from '../data/types';
+import type { SkyboxState } from './skybox';
 import type { SkyState } from './timeOfDay';
+import type { ParticleField } from './particles';
 import { bannerAt, type BannerPromo, type BannerRotation } from '../engine/banners';
 import { defaultLightPools } from '../render/marbleFloor';
 import { type Camera, worldToScreen } from './camera';
@@ -39,7 +41,9 @@ export interface SceneState {
   readonly floorId: FloorId;
   readonly pincode: Pincode | null;
   readonly floorLayer: FloorLayer | null;
-  readonly sky: SkyState;
+  /** Seasonal + diurnal state from the device clock; `skybox.sky` carries the colours. */
+  readonly skybox: SkyboxState;
+  readonly particles: ParticleField | null;
   readonly timeMs: number;
   readonly banners: readonly BannerPromo[];
   readonly hoverIndex: number;
@@ -47,6 +51,9 @@ export interface SceneState {
 
 const FACADES = ['#4F6B5A', '#2B1E1A', '#58111A', '#2F3E6B'] as const;
 const IVORY = '#FDFBF7';
+const SAND = { winter: ['#E4E9EF', '#F3F6FA'], autumn: ['#CDA877', '#DDBE92'], coastal: ['#D9C49A', '#E8D7B0'] } as const;
+const NEON = ['#FF4FA3', '#35E0FF', '#FFB347', '#B38BFF'] as const;
+const SUN = { winter: '235,244,255', autumn: '255,214,150', coastal: '255,246,222' } as const;
 const BRASS = '#C28D39';
 const BRASS_HI = '#E9C77B';
 
@@ -87,8 +94,8 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
 
   /* 1. coastline ------------------------------------------------------------------ */
   const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, st.sky.zenith);
-  sky.addColorStop(1, st.sky.horizon);
+  sky.addColorStop(0, st.skybox.sky.zenith);
+  sky.addColorStop(1, st.skybox.sky.horizon);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
@@ -96,9 +103,15 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
   const glassR = outerStore + GLASS_GAP;
   const beachR = glassR + 4.5;
   // sea fills everything beyond the beach
-  ctx.fillStyle = st.sky.sea;
+  ctx.fillStyle = st.skybox.sky.sea;
   ctx.fillRect(0, 0, W, H);
-  ctx.strokeStyle = rgba('#FFFFFF', 0.05 + 0.12 * st.sky.daylight);
+  // the sky is reflected on the water: horizon colour (sunset, golden hour, crisp blue) washes down from the top
+  const reflect = ctx.createLinearGradient(0, 0, 0, H * 0.85);
+  reflect.addColorStop(0, rgba(st.skybox.sky.horizon, 0.62));
+  reflect.addColorStop(0.55, rgba(st.skybox.sky.horizon, 0.18));
+  reflect.addColorStop(1, rgba(st.skybox.sky.horizon, 0));
+  ctx.fillStyle = reflect; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = rgba('#FFFFFF', 0.05 + 0.12 * st.skybox.sky.daylight);
   ctx.lineWidth = 1.2;
   const lineStep = 34;
   for (let y = -lineStep; y < H + lineStep; y += lineStep) {
@@ -109,8 +122,8 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
     }
     ctx.stroke();
   }
-  if (st.sky.lamplight > 0.5) {
-    ctx.fillStyle = rgba('#FFFFFF', (st.sky.lamplight - 0.5) * 0.9);
+  if (st.skybox.sky.lamplight > 0.5 && st.skybox.season !== 'winter') {
+    ctx.fillStyle = rgba('#FFFFFF', (st.skybox.sky.lamplight - 0.5) * 0.9);
     for (let i = 0; i < 70; i += 1) {
       const sx = ((i * 9301 + 49297) % 233280) / 233280 * W;
       const sy = ((i * 7919 + 12345) % 233280) / 233280 * H;
@@ -119,11 +132,15 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
   }
   // surf foam + beach
   ctx.beginPath(); ctx.arc(c0.sx, c0.sy, (beachR + 2.2 + Math.sin(t * 0.8) * 0.5) * z, 0, Math.PI * 2);
-  ctx.strokeStyle = rgba('#FFFFFF', 0.35 + 0.3 * st.sky.daylight); ctx.lineWidth = 0.9 * z; ctx.stroke();
+  ctx.strokeStyle = rgba('#FFFFFF', 0.35 + 0.3 * st.skybox.sky.daylight); ctx.lineWidth = 0.9 * z; ctx.stroke();
+  const sand = SAND[st.skybox.season];
   ctx.beginPath(); ctx.arc(c0.sx, c0.sy, beachR * z, 0, Math.PI * 2);
-  ctx.fillStyle = '#D9C49A'; ctx.fill();
+  ctx.fillStyle = sand[0]; ctx.fill();
   ctx.beginPath(); ctx.arc(c0.sx, c0.sy, (beachR - 1.5) * z, 0, Math.PI * 2);
-  ctx.fillStyle = '#E8D7B0'; ctx.fill();
+  ctx.fillStyle = sand[1]; ctx.fill();
+
+  // exterior particles (snow / foliage) fall across the backdrop, behind the glass
+  if (st.particles !== null) st.particles.draw(ctx, { night: st.skybox.phase === 'night', parallaxX: -cam.cx * z * 0.25, parallaxY: -cam.cy * z * 0.25 });
 
   /* 2. building shell + interior base --------------------------------------------- */
   ctx.beginPath(); ctx.arc(c0.sx, c0.sy, glassR * z, 0, Math.PI * 2);
@@ -149,6 +166,9 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
     ctx.strokeStyle = '#EFE5D2'; ctx.lineWidth = spec.walkwayWidth * z; ctx.stroke();
   }
 
+  drawSunWash(ctx, st, c0.sx, c0.sy, radius, half);
+  drawNeonSpeculars(ctx, st);
+
   /* 5. atrium overlook ------------------------------------------------------------ */
   drawAtrium(ctx, st, c0.sx, c0.sy, (radius - half) * z);
 
@@ -171,7 +191,7 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
   drawElevatorCore(ctx, P(lm.elevator.x, lm.elevator.y), z, lm.elevator.angle, st);
   const billboards: Array<{ sy: number; draw: () => void }> = [];
   const cp = P(lm.centerpiece.x, lm.centerpiece.y);
-  billboards.push({ sy: cp.sy, draw: () => drawCenterpiece(ctx, cp.sx, cp.sy, z, t, st.sky) });
+  billboards.push({ sy: cp.sy, draw: () => drawCenterpiece(ctx, cp.sx, cp.sy, z, t, st.skybox.sky) });
 
   const slots = BANNER_ROTATION.slots;
   for (let s = 0; s < slots; s += 1) {
@@ -186,16 +206,16 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
   for (const b of billboards) b.draw();
 
   /* 9. day/night grade ------------------------------------------------------------ */
-  ctx.fillStyle = rgba(st.sky.tint, st.sky.tintAlpha);
+  ctx.fillStyle = rgba(st.skybox.sky.tint, st.skybox.sky.tintAlpha);
   ctx.fillRect(0, 0, W, H);
   const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.75);
-  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(20,12,10,${0.28 + 0.2 * st.sky.lamplight})`);
+  vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, `rgba(20,12,10,${0.28 + 0.2 * st.skybox.sky.lamplight})`);
   ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
   // lamps sit on top of the grade so night does not dim them
   for (const L of defaultLightPools(spec, radius)) {
     const lp = P(L.x, L.y);
-    drawChandelier(ctx, lp.sx, lp.sy - 3.2 * z, z, st.sky.lamplight, t);
+    drawChandelier(ctx, lp.sx, lp.sy - 3.2 * z, z, st.skybox.sky.lamplight, t);
   }
 
   ctx.restore();
@@ -220,7 +240,7 @@ function drawStorefront(
   const base = FACADES[i % FACADES.length] as string;
   const blocked = e.status === 'not-deliverable';
   const hover = st.hoverIndex === i;
-  const lit = 0.25 + 0.75 * st.sky.lamplight;
+  const lit = 0.25 + 0.75 * st.skybox.sky.lamplight;
 
   ctx.save();
   ctx.translate(sx, sy);
@@ -246,6 +266,14 @@ function drawStorefront(
   ctx.fillStyle = rgba('#1A110E', 0.86);
   ctx.fillRect(-w / 2, -d * 0.2, w, d * 0.2);
   ctx.strokeStyle = BRASS; ctx.strokeRect(-w / 2, -d * 0.2, w, d * 0.2);
+
+  if (st.skybox.neon > 0.04 && !blocked) {
+    const col = NEON[i % NEON.length] as string;
+    ctx.strokeStyle = rgba(col, 0.22 * st.skybox.neon); ctx.lineWidth = Math.max(2, 0.5 * z);
+    ctx.strokeRect(-w / 2 - 1, -d * 0.2 - 1, w + 2, d * 0.2 + 2);
+    ctx.strokeStyle = rgba(col, 0.95 * st.skybox.neon); ctx.lineWidth = Math.max(1, 0.12 * z);
+    ctx.strokeRect(-w / 2, -d * 0.2, w, d * 0.2);
+  }
 
   // store name, upright and fitted to the sign band
   ctx.save();
@@ -356,7 +384,7 @@ function drawGlassWall(ctx: Ctx, st: SceneState, cx: number, cy: number, r: numb
   ctx.save();
   const g = ctx.createRadialGradient(cx, cy, r * 0.92, cx, cy, r * 1.01);
   g.addColorStop(0, rgba('#BFE6F2', 0.0));
-  g.addColorStop(1, rgba('#BFE6F2', 0.5 * (0.35 + 0.65 * st.sky.daylight)));
+  g.addColorStop(1, rgba('#BFE6F2', 0.5 * (0.35 + 0.65 * st.skybox.sky.daylight)));
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.arc(cx, cy, r - 1.6 * z, 0, Math.PI * 2, true);
   ctx.fillStyle = g; ctx.fill();
   ctx.lineWidth = 0.22 * z; ctx.strokeStyle = BRASS;
@@ -372,6 +400,7 @@ function drawGlassWall(ctx: Ctx, st: SceneState, cx: number, cy: number, r: numb
     ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
     ctx.stroke();
   }
+  drawFacadeLights(ctx, st, cx, cy, r);
   // sun/moon glint sweeping across the glass
   const a = (st.timeMs / 60000) * Math.PI * 2;
   const gx = cx + Math.cos(a) * r, gy = cy + Math.sin(a) * r;
@@ -500,5 +529,73 @@ function drawChandelier(ctx: Ctx, sx: number, sy: number, z: number, lamp: numbe
     ctx.fillStyle = lamp > 0.3 ? '#FFF0BF' : BRASS; ctx.fill();
   }
   ctx.fillStyle = BRASS_HI; ctx.beginPath(); ctx.arc(0, 0, 0.3 * z, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+/* ───────────────────────── seasonal / diurnal passes ───────────────────────── */
+
+/** Soft daylight diffusing across the marble, tinted by season. Off at night. */
+function drawSunWash(ctx: Ctx, st: SceneState, cx: number, cy: number, radius: number, half: number): void {
+  const day = st.skybox.sky.daylight;
+  if (day < 0.04) return;
+  const z = st.camera.zoom;
+  const tone = SUN[st.skybox.season];
+  ctx.save();
+  ctx.lineCap = 'butt';
+  ctx.strokeStyle = `rgba(${tone},${(0.16 * day).toFixed(3)})`;
+  ctx.lineWidth = 3.2 * z;
+  ctx.beginPath(); ctx.arc(cx, cy, (radius + half - 1.6) * z, st.spec.startAngle, st.spec.startAngle + st.spec.sweep); ctx.stroke();
+  ctx.strokeStyle = `rgba(${tone},${(0.1 * day).toFixed(3)})`;
+  ctx.lineWidth = 6.5 * z;
+  ctx.beginPath(); ctx.arc(cx, cy, (radius + half - 3.2) * z, st.spec.startAngle, st.spec.startAngle + st.spec.sweep); ctx.stroke();
+  ctx.restore();
+}
+
+/** At night each lit storefront throws a soft coloured glow onto the polished floor. */
+function drawNeonSpeculars(ctx: Ctx, st: SceneState): void {
+  const neon = st.skybox.neon;
+  if (neon < 0.04) return;
+  const z = st.camera.zoom;
+  const margin = 80;
+  ctx.save();
+  for (let i = 0; i < st.layout.placements.length; i += 1) {
+    const p = st.layout.placements[i];
+    const e = st.entries[i];
+    if (p === undefined || e === undefined || e.status === 'not-deliverable') continue;
+    const sp = worldToScreen(st.camera, st.width, st.height, p.x + Math.cos(p.facing) * 2.2, p.y + Math.sin(p.facing) * 2.2);
+    if (sp.sx < -margin || sp.sx > st.width + margin || sp.sy < -margin || sp.sy > st.height + margin) continue;
+    const r = Math.max(2.4, p.frontage * 0.85) * z;
+    const g = ctx.createRadialGradient(sp.sx, sp.sy, 0, sp.sx, sp.sy, r);
+    const col = NEON[i % NEON.length] as string;
+    g.addColorStop(0, rgba(col, 0.26 * neon)); g.addColorStop(1, rgba(col, 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(sp.sx - r, sp.sy - r, r * 2, r * 2);
+  }
+  ctx.restore();
+}
+
+/** Illuminated facade along the glass wall at night; red/green/gold string lights in the holiday season. */
+function drawFacadeLights(ctx: Ctx, st: SceneState, cx: number, cy: number, r: number): void {
+  const neon = st.skybox.neon;
+  if (neon < 0.04) return;
+  const z = st.camera.zoom;
+  const t = st.timeMs / 1000;
+  const n = Math.max(72, Math.round((r / z) * 1.5));
+  const holiday = st.skybox.holidayLights;
+  const palette = holiday ? ['#FF4D4D', '#FFD36B', '#4DFF88', '#FFFFFF'] : ['#FFD58A'];
+  ctx.save();
+  for (let c = 0; c < palette.length; c += 1) {
+    ctx.fillStyle = palette[c] as string;
+    ctx.beginPath();
+    for (let k = c; k < n; k += palette.length) {
+      const a = (k / n) * Math.PI * 2;
+      const tw = holiday ? 0.55 + 0.45 * Math.sin(t * 2.4 + k * 1.7) : 1;
+      ctx.globalAlpha = Math.min(1, neon * tw * 0.95);
+      const x = cx + Math.cos(a) * (r - 0.8 * z); const y = cy + Math.sin(a) * (r - 0.8 * z);
+      ctx.moveTo(x + 0.28 * z, y); ctx.arc(x, y, Math.max(1.2, 0.28 * z), 0, Math.PI * 2);
+    }
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
