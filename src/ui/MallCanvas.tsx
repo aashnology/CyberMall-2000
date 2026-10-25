@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CONCOURSE as SPEC, concourseToWorld, type FloorLayout } from '../spatial/concourse';
+import { floor7Landmarks, nearPhotobooth } from '../spatial/landmarks';
 import { drawScene, landmarkPositions, type FloorLayer } from '../scene/drawScene';
 import { clampZoom, screenToWorld, worldToScreen, type Camera } from '../scene/camera';
 import { initialWalker, NO_INPUT, setTarget, stepWalker, type KeyInput, type Walker } from '../scene/movement';
@@ -43,6 +44,8 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
   const hover = useRef(-1);
   const floorLayer = useRef<FloorLayer | null>(null);
   const pendingElevator = useRef(false);
+  const pendingBooth = useRef(false);
+  const nearBoothRef = useRef(false);
   const impressions = useRef(new ImpressionTracker());
   const particles = useRef(new ParticleField());
   const dwell = useRef(new DwellTracker());
@@ -52,6 +55,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
   const [frame, setFrame] = useState<{ bucket: number; walking: boolean; facing: 'left' | 'right' }>({ bucket: -1, walking: false, facing: 'right' });
   const [tip, setTip] = useState<Tip | null>(null);
   const [nearElevator, setNearElevator] = useState(false);
+  const [nearBooth, setNearBooth] = useState(false);
   const avatar = useMallStore((s) => s.avatar);
   const panel = useMallStore((s) => s.panel);
 
@@ -95,6 +99,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
       if (k === 'escape') { st.closePanel(); return; }
       if (k === 'm') { st.openPanel(st.panel === 'map' ? 'none' : 'map'); return; }
       if (k === 'l') { st.openPanel(st.panel === 'directory' ? 'none' : 'directory'); return; }
+      if (k === 'e' && nearBoothRef.current && st.panel === 'none') { audio.play('open'); st.openPanel('photobooth'); return; }
       if (k === 'e' && walker.current.t < 0.1) { st.openPanel('elevator'); return; }
       const dir = KEYMAP[k];
       if (dir !== undefined && st.panel === 'none') { keys.current[dir] = true; e.preventDefault(); }
@@ -118,6 +123,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
     let lastWalking = false;
     let lastFacing: 'left' | 'right' = 'right';
     let lastNear = false;
+    let lastNearBooth = false;
     let lastPublish = 0;
     let lastImpressionScan = 0;
     let lastAudioScan = 0;
@@ -159,9 +165,14 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
         skybox = next;
       }
       particles.current.step(dt, 6);
+      const f7 = L.floorId === 7 ? floor7Landmarks(SPEC, L.layout.radius) : null;
+      const nearBoothNow = f7 !== null && nearPhotobooth(here, f7.photobooth);
+      nearBoothRef.current = nearBoothNow;
+      if (nearBoothNow !== lastNearBooth) { lastNearBooth = nearBoothNow; setNearBooth(nearBoothNow); }
+      if (pendingBooth.current && nearBoothNow) { pendingBooth.current = false; audio.play('open'); st.openPanel('photobooth'); }
       drawScene(ctx, {
         width: W, height: H, camera: cam.current, spec: SPEC, layout: L.layout, entries: L.entries, floorId: L.floorId,
-        pincode: L.pincode, floorLayer: floorLayer.current, skybox: skybox as SkyboxState, particles: particles.current, timeMs: now, banners: L.banners, hoverIndex: hover.current,
+        pincode: L.pincode, nearBooth: nearBoothNow, floorLayer: floorLayer.current, skybox: skybox as SkyboxState, particles: particles.current, timeMs: now, banners: L.banners, hoverIndex: hover.current,
       });
 
       // spatial audio: distance to the nearest storefront drives the bed crossfade
@@ -170,7 +181,12 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
         const idx = nearestPlacement(L.layout.placements, here.x, here.y, Number.POSITIVE_INFINITY);
         const pl = idx >= 0 ? L.layout.placements[idx] : undefined;
         const ent = idx >= 0 ? L.entries[idx] : undefined;
-        audio.setListener({ floorId: L.floorId, nearest: pl !== undefined && ent !== undefined ? { subcategory: ent.store.subcategory, distance: Math.hypot(pl.x - here.x, pl.y - here.y) } : null });
+        const arcade = L.floorId === 7 ? floor7Landmarks(SPEC, L.layout.radius).arcade : null;
+        audio.setListener({
+          floorId: L.floorId,
+          nearest: pl !== undefined && ent !== undefined ? { subcategory: ent.store.subcategory, distance: Math.hypot(pl.x - here.x, pl.y - here.y) } : null,
+          arcadeDistance: arcade === null ? null : Math.hypot(arcade.x - here.x, arcade.y - here.y),
+        });
       }
       // telemetry: impressions (first time on screen) and 3-second hover dwell
       if (now - lastImpressionScan > 250) {
@@ -227,6 +243,15 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
       track('STORE_MODAL_OPENED', hitEntry.store.id, hitEntry);
       return;
     }
+    if (live.current.floorId === 7) {
+      const booth = floor7Landmarks(SPEC, live.current.layout.radius).photobooth;
+      if (Math.hypot(p.x - booth.x, p.y - booth.y) < 4.4) {
+        if (nearBoothRef.current) { audio.play('open'); useMallStore.getState().openPanel('photobooth'); }
+        else { pendingBooth.current = true; walker.current = setTarget(SPEC, live.current.layout.radius, walker.current, booth.x, booth.y); }
+        return;
+      }
+    }
+    pendingBooth.current = false;
     const lm = landmarkPositions(SPEC, live.current.layout.radius);
     if (Math.hypot(p.x - lm.elevator.x, p.y - lm.elevator.y) < 6) pendingElevator.current = true;
     else pendingElevator.current = false;
@@ -258,7 +283,8 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
           {tip.entry.status === 'delivers' && <em className="ok-text">Delivers to {pincode}</em>}
         </div>
       )}
-      {nearElevator && panel === 'none' && <div className="prompt">Press <kbd>E</kbd> or click the elevator · Floor {floorId}</div>}
+      {nearBooth && panel === 'none' && <div className="prompt">Enter Photobooth <kbd>E</kbd> / Tap</div>}
+      {nearElevator && !nearBooth && panel === 'none' && <div className="prompt">Press <kbd>E</kbd> or click the elevator · Floor {floorId}</div>}
       <div className="hint">WASD / arrows or click to walk · wheel to zoom · <kbd>M</kbd> map · <kbd>L</kbd> directory</div>
     </div>
   );

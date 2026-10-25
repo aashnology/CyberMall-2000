@@ -11,6 +11,7 @@
 
 import type { ConcourseSpec, FloorLayout } from '../spatial/concourse';
 import { concourseToWorld } from '../spatial/concourse';
+import { landmarkPositions, floor7Landmarks } from '../spatial/landmarks';
 import type { DirectoryEntry } from '../engine/pincode';
 import type { Pincode, FloorId } from '../data/types';
 import type { SkyboxState } from './skybox';
@@ -19,6 +20,7 @@ import type { ParticleField } from './particles';
 import { bannerAt, type BannerPromo, type BannerRotation } from '../engine/banners';
 import { defaultLightPools } from '../render/marbleFloor';
 import { type Camera, worldToScreen } from './camera';
+import { drawArcadeWing, drawPhotoboothKiosk } from './floor7Art';
 
 export const BANNER_ROTATION: BannerRotation = { slots: 4, intervalMs: 5000 };
 export const STORE_DEPTH = 6.5;
@@ -47,6 +49,8 @@ export interface SceneState {
   readonly timeMs: number;
   readonly banners: readonly BannerPromo[];
   readonly hoverIndex: number;
+  /** The avatar is close enough to the photobooth to be offered "Enter Photobooth". */
+  readonly nearBooth: boolean;
 }
 
 const FACADES = ['#4F6B5A', '#2B1E1A', '#58111A', '#2F3E6B'] as const;
@@ -59,21 +63,7 @@ const BRASS_HI = '#E9C77B';
 
 type Ctx = CanvasRenderingContext2D;
 
-/** World location of the elevator core (start of the C) and the centerpiece (end of the C). */
-export function landmarkPositions(spec: ConcourseSpec, radius: number): {
-  elevator: { x: number; y: number; angle: number };
-  centerpiece: { x: number; y: number; angle: number };
-} {
-  const a0 = spec.startAngle;
-  const a1 = spec.startAngle + spec.sweep;
-  const s = concourseToWorld(spec, radius, 0, 0);
-  const e = concourseToWorld(spec, radius, 1, 0);
-  const push = spec.walkwayWidth * 0.75;
-  return {
-    elevator: { x: s.x + Math.sin(a0) * push, y: s.y - Math.cos(a0) * push, angle: a0 },
-    centerpiece: { x: e.x - Math.sin(a1) * push, y: e.y + Math.cos(a1) * push, angle: a1 },
-  };
-}
+export { landmarkPositions } from '../spatial/landmarks';
 
 const rgba = (hex: string, a: number): string => {
   const n = parseInt(hex.slice(1), 16);
@@ -191,7 +181,15 @@ export function drawScene(ctx: Ctx, st: SceneState): void {
   drawElevatorCore(ctx, P(lm.elevator.x, lm.elevator.y), z, lm.elevator.angle, st);
   const billboards: Array<{ sy: number; draw: () => void }> = [];
   const cp = P(lm.centerpiece.x, lm.centerpiece.y);
-  billboards.push({ sy: cp.sy, draw: () => drawCenterpiece(ctx, cp.sx, cp.sy, z, t, st.skybox.sky) });
+  if (st.floorId === 7) {
+    // Floor 7: the far end is the Gaming Arcade; the photobooth stands at the threshold in front of it
+    const f7 = floor7Landmarks(spec, radius);
+    const bp = P(f7.photobooth.x, f7.photobooth.y);
+    billboards.push({ sy: cp.sy - 10000, draw: () => drawArcadeWing(ctx, cp.sx, cp.sy, z, t) }); // backdrop: always behind the kiosk
+    billboards.push({ sy: bp.sy, draw: () => drawPhotoboothKiosk(ctx, bp.sx, bp.sy, z, t, st.nearBooth) });
+  } else {
+    billboards.push({ sy: cp.sy, draw: () => drawCenterpiece(ctx, cp.sx, cp.sy, z, t, st.skybox.sky) });
+  }
 
   const slots = BANNER_ROTATION.slots;
   for (let s = 0; s < slots; s += 1) {

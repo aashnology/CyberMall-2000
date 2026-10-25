@@ -4,7 +4,7 @@ import { parsePincode, type DirectoryEntry, type PincodeParse } from '../engine/
 import type { FloorId, Pincode } from '../data/types';
 import { loadPersisted, savePersisted } from './persist';
 
-export type Panel = 'none' | 'directory' | 'map' | 'elevator' | 'avatar' | 'analytics';
+export type Panel = 'none' | 'directory' | 'map' | 'elevator' | 'avatar' | 'analytics' | 'photobooth';
 
 export interface MallState {
   readonly pincode: Pincode | null;

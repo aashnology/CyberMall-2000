@@ -39,7 +39,7 @@ const st: SceneState = {
   width: W, height: H, camera: { cx: Math.cos(ang) * layout.radius, cy: Math.sin(ang) * layout.radius, zoom: Number(zoomArg) },
   spec: S, layout, entries, floorId, pincode: parsed.pincode,
   floorLayer: { image: fc as unknown as CanvasImageSource, extent: size / ppu },
-  skybox, particles: field, timeMs: 2300, banners: eligiblePromos(dir), hoverIndex: -1,
+  skybox, particles: field, timeMs: 2300, banners: eligiblePromos(dir), hoverIndex: -1, nearBooth: false,
 };
 void half;
 drawScene(ctx as unknown as CanvasRenderingContext2D, st);

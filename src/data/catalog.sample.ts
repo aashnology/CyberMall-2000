@@ -45,9 +45,9 @@ const SPECS: readonly FloorSpec[] = [
   { floorId: 5, count: 18, firstWords: ['Rosewater', 'Bloom', 'Dew', 'Petal', 'Silk', 'Halo'],
     secondWords: ['Skin', 'Parlour', 'Bar', 'Lab'], subcategories: [...BEAUTY_SUBCATEGORIES], promoThing: 'serums' },
   { floorId: 7, count: 24, firstWords: ['Tandoor', 'Spice', 'Noodle', 'Wok', 'Dosa', 'Kebab', 'Pasta'],
-    secondWords: ['Express', 'Junction', 'Kitchen', 'Bowl'], subcategories: ['north indian', 'south indian', 'street food', 'asian', 'italian', 'desserts'], promoThing: 'combo meals' },
+    secondWords: ['Express', 'Junction', 'Kitchen', 'Bowl'], subcategories: ['burgers', 'pizza', 'fries', 'fried chicken', 'sandwiches', 'street food'], promoThing: 'combo meals' },
   { floorId: 8, count: 20, firstWords: ['Monsoon', 'Slow', 'Crema', 'Bean', 'Pour', 'Third-Wave'],
-    secondWords: ['Roasters', 'Cafe', 'Bakehouse', 'Coffee Co'], subcategories: ['coffee roaster', 'bakery', 'tea room', 'cafe'], promoThing: 'cold brew beans' },
+    secondWords: ['Roasters', 'Cafe', 'Bakehouse', 'Coffee Co'], subcategories: ['coffee roaster', 'bakery', 'tea room', 'cafe', 'specialty cafe', 'fine dining'], promoThing: 'cold brew beans' },
   { floorId: 9, count: 14, firstWords: ['Wellspring', 'Carewell', 'Nirvana', 'Herbal', 'Vital', 'Samvedna'],
     secondWords: ['Pharmacy', 'Apothecary', 'Chemist', 'Diagnostics'], subcategories: [...CLINICAL_SUBCATEGORIES], promoThing: 'daily supplements' },
 ];

@@ -14,18 +14,26 @@
 
 import type { FloorId } from '../data/types';
 
-export type BedId = 'mall' | 'cafe' | 'cinema';
-export type Sfx = 'click' | 'bloop' | 'bell' | 'chime' | 'open';
+export type BedId = 'mall' | 'cafe' | 'cinema' | 'arcade';
+export type Sfx = 'click' | 'bloop' | 'bell' | 'chime' | 'open' | 'shutter' | 'beep';
+const BEDS: readonly BedId[] = ['mall', 'cafe', 'cinema', 'arcade'];
 
 export const CAFE_SUBCATEGORIES: readonly string[] = ['cafe', 'coffee roaster', 'bakery', 'tea room'];
 export const CINEMA_SUBCATEGORIES: readonly string[] = ['theatre', 'ott'];
 /** World units within which a nearby wing starts to bleed into the mix. */
 export const PROXIMITY_RADIUS = 14;
+/** The arcade's 8-bit bed is audible from further away: it is meant to pull you down the concourse. */
+export const ARCADE_RADIUS = 22;
 export const MASTER_VOLUME = 0.32;
 export const MUTE_KEY = 'cybermall2000.audio.muted';
 
 export interface Nearest { readonly subcategory: string; readonly distance: number }
-export interface ListenerContext { readonly floorId: FloorId; readonly nearest: Nearest | null }
+export interface ListenerContext {
+  readonly floorId: FloorId;
+  readonly nearest: Nearest | null;
+  /** Distance to the Gaming Arcade wing; only meaningful on Floor 7. */
+  readonly arcadeDistance?: number | null;
+}
 
 const smoothstep = (x: number): number => { const t = Math.min(1, Math.max(0, x)); return t * t * (3 - 2 * t); };
 
@@ -39,7 +47,8 @@ export function proximity(distance: number, radius: number = PROXIMITY_RADIUS): 
  * Bed gains (equal-power: sum of squares = 1, so loudness stays constant through a crossfade).
  *   cafe   = 1 on the Cafes floor, else proximity to the nearest cafe-type store
  *   cinema = 1 on the Theatre & OTT floor, else proximity to the nearest theatre/OTT store
- *   mall   = 1 − 0.85·max(cafe, cinema)            (a trace of the mall always remains)
+ *   arcade = on Floor 7 only: proximity to the Gaming Arcade wing (radius ARCADE_RADIUS)
+ *   mall   = 1 − 0.85·max(cafe, cinema, arcade)    (a trace of the mall always remains)
  *   gain_i = sqrt(w_i / Σw)
  */
 export function computeBedMix(ctx: ListenerContext): Record<BedId, number> {
@@ -48,13 +57,14 @@ export function computeBedMix(ctx: ListenerContext): Record<BedId, number> {
   const nearW = near === null ? 0 : proximity(near.distance);
   const cafe = ctx.floorId === 8 ? 1 : CAFE_SUBCATEGORIES.includes(sub) ? nearW : 0;
   const cinema = ctx.floorId === 6 ? 1 : CINEMA_SUBCATEGORIES.includes(sub) ? nearW : 0;
-  const mall = 1 - 0.85 * Math.max(cafe, cinema);
-  const total = mall + cafe + cinema;
-  return { mall: Math.sqrt(mall / total), cafe: Math.sqrt(cafe / total), cinema: Math.sqrt(cinema / total) };
+  const arcade = ctx.floorId === 7 && ctx.arcadeDistance !== undefined && ctx.arcadeDistance !== null ? proximity(ctx.arcadeDistance, ARCADE_RADIUS) : 0;
+  const mall = 1 - 0.85 * Math.max(cafe, cinema, arcade);
+  const total = mall + cafe + cinema + arcade;
+  return { mall: Math.sqrt(mall / total), cafe: Math.sqrt(cafe / total), cinema: Math.sqrt(cinema / total), arcade: Math.sqrt(arcade / total) };
 }
 
-const BED_CUTOFF_HZ: Record<BedId, number> = { mall: 2200, cafe: 3200, cinema: 1700 };
-const BED_LEVEL: Record<BedId, number> = { mall: 1, cafe: 1, cinema: 1 };
+const BED_CUTOFF_HZ: Record<BedId, number> = { mall: 2200, cafe: 3200, cinema: 1700, arcade: 3600 };
+const BED_LEVEL: Record<BedId, number> = { mall: 1, cafe: 1, cinema: 1, arcade: 1 };
 
 /* ───────────────────────── musical material ───────────────────────── */
 
@@ -72,6 +82,8 @@ const CAFE_PROGRESSION: readonly (readonly number[])[] = [
 ];
 const CAFE_PATTERN: readonly number[] = [0, 1, 2, 3, 2, 1, 2, 3];
 const CINEMA_PAD: readonly number[] = [48, 55, 63, 74]; // C2-ish drone, G, Eb, D: Cm(add9)
+const ARCADE_PROGRESSION: readonly (readonly number[])[] = [[57, 60, 64, 69], [53, 57, 60, 65], [55, 60, 64, 67], [55, 59, 62, 67]]; // Am F C G
+const ARCADE_PATTERN: readonly number[] = [0, 1, 2, 3, 2, 1, 2, 3, 0, 1, 2, 3, 3, 2, 1, 2];
 
 function mulberry32(seed: number): () => number {
   let a = seed >>> 0;
@@ -102,7 +114,7 @@ export class SpatialAudio {
   private listener: ListenerContext = { floorId: 1, nearest: null };
   private timer: unknown = null;
   private readonly rand = mulberry32(2000);
-  private readonly next: Record<BedId, { time: number; step: number }> = { mall: { time: 0, step: 0 }, cafe: { time: 0, step: 0 }, cinema: { time: 0, step: 0 } };
+  private readonly next: Record<BedId, { time: number; step: number }> = { mall: { time: 0, step: 0 }, cafe: { time: 0, step: 0 }, cinema: { time: 0, step: 0 }, arcade: { time: 0, step: 0 } };
   private readonly listeners = new Set<() => void>();
   private version = 0;
   private noise: AudioBuffer | null = null;
@@ -155,7 +167,7 @@ export class SpatialAudio {
     sfxBus.gain.value = 0.55;
     sfxBus.connect(master);
     const mk = (): GainNode => { const g = ctx.createGain(); g.gain.value = 0; g.connect(musicLP); return g; };
-    const beds = { mall: mk(), cafe: mk(), cinema: mk() };
+    const beds = { mall: mk(), cafe: mk(), cinema: mk(), arcade: mk() };
     this.master = master; this.musicLP = musicLP; this.sfxBus = sfxBus; this.beds = beds;
     this.noise = this.makeBrownNoise(ctx, 4);
 
@@ -186,7 +198,7 @@ export class SpatialAudio {
       const g = ctx.createGain(); g.gain.value = m > 70 ? 0.25 : 0.55; o.connect(g); g.connect(padLP); o.start();
     }
 
-    for (const b of ['mall', 'cafe', 'cinema'] as const) this.next[b] = { time: ctx.currentTime + 0.05, step: 0 };
+    for (const b of BEDS) this.next[b] = { time: ctx.currentTime + 0.05, step: 0 };
     this.applyMix(true);
   }
 
@@ -219,7 +231,7 @@ export class SpatialAudio {
     const mix = computeBedMix(this.listener);
     const now = this.ctx.currentTime;
     let cutoff = 0;
-    for (const b of ['mall', 'cafe', 'cinema'] as const) {
+    for (const b of BEDS) {
       const g = this.beds[b].gain;
       const target = mix[b] * BED_LEVEL[b];
       if (immediate) g.setValueAtTime(target, now); else g.setTargetAtTime(target, now, 0.7);
@@ -252,6 +264,18 @@ export class SpatialAudio {
       const m = (chord[CAFE_PATTERN[st.step % 8] as number] as number) + (st.step % 8 > 3 ? 12 : 0);
       this.tone({ freq: mtof(m), start: st.time, hold: 0.02, attack: 0.004, release: 0.9, gain: 0.17, type: 'triangle', dest: beds.cafe, detune: (this.rand() - 0.5) * 6 });
       if (st.step % 8 === 0) this.tone({ freq: mtof(chord[0] as number - 12), start: st.time, hold: 0.4, attack: 0.01, release: 1.4, gain: 0.18, type: 'sine', dest: beds.cafe });
+    }
+    // arcade: 8-bit chiptune, 150 bpm sixteenths: square-wave arpeggio over Am F C G, triangle bass, an occasional coin blip
+    const sixteenth = 60 / 150 / 4;
+    for (const st = this.next.arcade; st.time < t; st.time += sixteenth, st.step += 1) {
+      const chord = ARCADE_PROGRESSION[Math.floor(st.step / 16) % ARCADE_PROGRESSION.length] as readonly number[];
+      const note = chord[ARCADE_PATTERN[st.step % 16] as number] as number;
+      this.tone({ freq: mtof(note), start: st.time, hold: 0.025, attack: 0.002, release: 0.07, gain: 0.07, type: 'square', dest: beds.arcade });
+      if (st.step % 4 === 0) this.tone({ freq: mtof((chord[0] as number) - 24), start: st.time, hold: 0.09, attack: 0.004, release: 0.12, gain: 0.2, type: 'triangle', dest: beds.arcade });
+      if (st.step % 64 === 40) { // "insert coin" bite
+        this.tone({ freq: mtof(83), start: st.time, hold: 0.05, attack: 0.002, release: 0.04, gain: 0.07, type: 'square', dest: beds.arcade });
+        this.tone({ freq: mtof(88), start: st.time + 0.07, hold: 0.16, attack: 0.002, release: 0.12, gain: 0.07, type: 'square', dest: beds.arcade });
+      }
     }
     // cinema: slow sub-bass pulse every 8 s over the pad
     for (const st = this.next.cinema; st.time < t; st.time += 8, st.step += 1) {
@@ -298,6 +322,8 @@ export class SpatialAudio {
       case 'bell': { const f = 1318.5; partial(f, t, 0.3, 1.6); partial(f * 2.76, t, 0.1, 0.7); partial(f * 5.4, t, 0.04, 0.3); break; }
       case 'chime': [1046.5, 1318.5, 1568, 2093].forEach((f, i) => { const s = t + i * 0.06; const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(0.16, s + 0.004); g.gain.setTargetAtTime(0, s + 0.005, 0.12); o.connect(g); g.connect(bus); o.start(s); o.stop(s + 0.7); }); break;
       case 'open': beep(700, 700, t, 0.045, 0.14, 'square'); beep(1000, 1000, t + 0.055, 0.06, 0.14, 'square'); break;
+      case 'shutter': beep(2600, 1200, t, 0.012, 0.26, 'square'); beep(160, 90, t + 0.02, 0.09, 0.24, 'sine'); beep(1400, 700, t + 0.05, 0.014, 0.22, 'square'); break; // ka-chk
+      case 'beep': beep(880, 880, t, 0.09, 0.2, 'square'); break; // countdown tick
     }
     return true;
   }

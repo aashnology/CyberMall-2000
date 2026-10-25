@@ -22,7 +22,7 @@ export const FLOORS: Readonly<Record<FloorId, FloorDefinition>> = {
   4: { id: 4, name: 'Specialty Hobby, Toys & Collectibles', plate: 'HOBBY' },
   5: { id: 5, name: 'Beauty, Cosmetics & Personal Grooming', plate: 'BEAUTY' },
   6: { id: 6, name: 'Theatre and OTT', plate: 'THEATRE' },
-  7: { id: 7, name: 'Food Court', plate: 'FOOD' },
+  7: { id: 7, name: 'Food Court and Arcade', plate: 'FOOD' },
   8: { id: 8, name: 'Cafes', plate: 'CAFES' },
   9: { id: 9, name: 'Pharmaceuticals, Clinical Wellness & Apothecaries', plate: 'APOTHECARY' },
 };

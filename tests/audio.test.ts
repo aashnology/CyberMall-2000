@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as wa from 'node-web-audio-api';
-import { SpatialAudio, computeBedMix, proximity, MUTE_KEY, PROXIMITY_RADIUS, MASTER_VOLUME, type ListenerContext, type Sfx } from '../src/audio/spatialAudio';
+import { SpatialAudio, computeBedMix, proximity, MUTE_KEY, PROXIMITY_RADIUS, ARCADE_RADIUS, MASTER_VOLUME, type ListenerContext, type Sfx } from '../src/audio/spatialAudio';
 
 const SR = 44100;
 const offline = (seconds: number): wa.OfflineAudioContext => new wa.OfflineAudioContext(1, Math.ceil(SR * seconds), SR);
@@ -51,12 +51,12 @@ describe('proximity crossfade maths', () => {
   it('is equal-power everywhere (Σ gain² = 1) so loudness does not dip mid-fade', () => {
     for (const floorId of [1, 5, 6, 8, 9] as const) for (const sub of ['cafe', 'bakery', 'theatre', 'ott', 'skincare']) for (let d = 0; d <= 20; d += 1.7) {
       const m = computeBedMix({ floorId, nearest: { subcategory: sub, distance: d } });
-      expect(m.mall ** 2 + m.cafe ** 2 + m.cinema ** 2).toBeCloseTo(1, 12);
+      expect(m.mall ** 2 + m.cafe ** 2 + m.cinema ** 2 + m.arcade ** 2).toBeCloseTo(1, 12);
       for (const g of Object.values(m)) { expect(g).toBeGreaterThanOrEqual(0); expect(g).toBeLessThanOrEqual(1); }
     }
   });
   it('far from everything it is pure mall; walking toward a cafe fades the cafe in monotonically', () => {
-    expect(computeBedMix({ floorId: 1, nearest: null })).toEqual({ mall: 1, cafe: 0, cinema: 0 });
+    expect(computeBedMix({ floorId: 1, nearest: null })).toEqual({ mall: 1, cafe: 0, cinema: 0, arcade: 0 });
     expect(computeBedMix({ floorId: 1, nearest: { subcategory: 'cafe', distance: 30 } }).cafe).toBe(0);
     let prev = 0;
     for (let d = PROXIMITY_RADIUS; d >= 0; d -= 1) {
@@ -65,11 +65,20 @@ describe('proximity crossfade maths', () => {
     }
     expect(prev).toBeGreaterThan(0.9);
   });
+  it('the arcade bed exists only on Floor 7, grows as you walk toward the arcade, and is equal-power throughout', () => {
+    const at = (floorId: 1 | 7, d: number | null): ReturnType<typeof computeBedMix> => computeBedMix({ floorId, nearest: null, arcadeDistance: d });
+    expect(at(1, 2).arcade).toBe(0);                 // not on other floors, however close
+    expect(at(7, null).arcade).toBe(0);              // no distance known
+    expect(at(7, ARCADE_RADIUS).arcade).toBe(0);     // outside the radius
+    let prev = 0;
+    for (let d = ARCADE_RADIUS; d >= 0; d -= 1) { const m = at(7, d); expect(m.arcade).toBeGreaterThanOrEqual(prev); prev = m.arcade; expect(m.mall ** 2 + m.cafe ** 2 + m.cinema ** 2 + m.arcade ** 2).toBeCloseTo(1, 12); }
+    expect(prev).toBeGreaterThan(0.9);
+  });
   it('the Cafes floor is acoustic lounge, the Theatre & OTT floor is cinematic, other wings do not leak', () => {
     expect(computeBedMix({ floorId: 8, nearest: null }).cafe).toBeGreaterThan(0.7);
     expect(computeBedMix({ floorId: 6, nearest: null }).cinema).toBeGreaterThan(0.7);
     expect(computeBedMix({ floorId: 6, nearest: null }).cafe).toBe(0);
-    expect(computeBedMix({ floorId: 1, nearest: { subcategory: 'skincare', distance: 0 } })).toEqual({ mall: 1, cafe: 0, cinema: 0 });
+    expect(computeBedMix({ floorId: 1, nearest: { subcategory: 'skincare', distance: 0 } })).toEqual({ mall: 1, cafe: 0, cinema: 0, arcade: 0 });
     expect(computeBedMix({ floorId: 1, nearest: { subcategory: 'theatre', distance: 1 } }).cinema).toBeGreaterThan(0.7);
   });
 });
@@ -170,6 +179,19 @@ describe('rendered ambience (offline Web Audio)', () => {
     const tilt = (d: Float32Array): number => goertzel(d, 130, SR * 2) / (goertzel(d, 1500, SR * 2) + 1e-18);
     expect(tilt(cinema)).toBeGreaterThan(tilt(cafe));
   });
+  it('the arcade bed is 8-bit: audibly distinct, level-matched, and brighter (square-wave harmonics) than the cinema pad', async () => {
+    const mall = await renderBeds(8, { floorId: 1, nearest: null });
+    const arcade = await renderBeds(8, { floorId: 7, nearest: null, arcadeDistance: 0 });
+    const cinema = await renderBeds(8, { floorId: 6, nearest: null });
+    expect(arcade.every(Number.isFinite)).toBe(true);
+    expect(peak(arcade)).toBeLessThan(0.7);
+    const ratio = rms(arcade, SR * 2) / rms(mall, SR * 2);
+    expect(ratio).toBeGreaterThan(0.5); expect(ratio).toBeLessThan(2);
+    const x = new Float32Array(arcade.length); for (let i = 0; i < x.length; i += 1) x[i] = (arcade[i] as number) - (mall[i] as number);
+    expect(rms(x, SR * 2) / rms(mall, SR * 2)).toBeGreaterThan(0.6);
+    const bright = (d: Float32Array): number => goertzel(d, 2200, SR * 2) / (goertzel(d, 220, SR * 2) + 1e-18);
+    expect(bright(arcade)).toBeGreaterThan(bright(cinema));
+  });
   it('crossfading from mall to cafe mid-render is smooth: no jump, loudness stays within ±6 dB', async () => {
     const seconds = 14;
     const ctx = offline(seconds);
@@ -189,7 +211,7 @@ describe('rendered ambience (offline Web Audio)', () => {
 });
 
 describe('retro UI sounds (offline Web Audio)', () => {
-  it.each(['click', 'bloop', 'bell', 'chime', 'open'] as const)('%s is audible, finite and unclipped', async (sfx) => {
+  it.each(['click', 'bloop', 'bell', 'chime', 'open', 'shutter', 'beep'] as const)('%s is audible, finite and unclipped', async (sfx) => {
     const d = await renderSfx(sfx);
     expect(d.every(Number.isFinite)).toBe(true);
     expect(peak(d)).toBeGreaterThan(0.02);
