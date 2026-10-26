@@ -15,6 +15,7 @@ import { Elevator } from './ui/Elevator';
 import { AvatarEditor } from './ui/AvatarEditor';
 import { Floor6Panel } from './ui/Floor6Panel';
 import { StoreModal } from './ui/StoreModal';
+import { PhotoboothModal } from './photobooth/PhotoboothModal';
 import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
 
 export function App(): React.JSX.Element {
@@ -58,6 +59,7 @@ export function App(): React.JSX.Element {
         {panel === 'map' && <MiniMap layout={layout} entries={entries} floorId={floorId} />}
         {panel === 'elevator' && <Elevator />}
         {panel === 'analytics' && <AnalyticsDashboard />}
+        {panel === 'photobooth' && <PhotoboothModal />}
         <StoreModal />
       </main>
     </div>

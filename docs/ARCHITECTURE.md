@@ -39,7 +39,10 @@
 | Rendering | `scene/drawScene.ts`, `render/marbleFloor.ts` (+ `marbleWorker.ts`), `avatar/renderAvatar.ts` | draw fns take a context |
 | Telemetry | `analytics/telemetry.ts`, `metrics.ts`, `cluster.ts`, `track.ts`, `instance.ts` | core is pure |
 | Audio | `audio/spatialAudio.ts`, `audio/instance.ts` | runs on any `BaseAudioContext` |
-| UI | `ui/*`, `components/analytics/*`, `App.tsx` | React |
+| Seasonal / diurnal sky, exterior particles | `scene/skybox.ts`, `scene/particles.ts` | yes (take a `Date`) |
+| Floor 7: fast-food partition, arcade wing, photobooth landmarks and art | `data/foodPartition.ts`, `spatial/landmarks.ts`, `scene/floor7Art.ts` | yes / draw fns |
+| Photobooth: camera, timeline, controller, strip compositor | `photobooth/*`, `utils/photostripGenerator.ts`, `utils/stickers.ts` | controller and timeline pure; camera isolated |
+| UI | `ui/*`, `components/analytics/*`, `photobooth/PhotoboothModal.tsx`, `App.tsx` | React |
 
 Rule: **business logic never lives in the presentation layer.** Components read state, call pure functions and render.
 
@@ -65,13 +68,20 @@ Rule: **business logic never lives in the presentation layer.** Components read 
 
 The PIN gate is mandatory: with no valid PIN, `App` renders only `PincodeGate`, whose input starts empty with no placeholder and no suggestion.
 
-## 5. Failure behaviour
+## 5. Sky, season and Floor 7
+
+* **Skybox** (`skyboxAt(date)`): season from the device date (winter Dec 1–Jan 15, autumn Sep–Nov, otherwise coastal), day 06:00–17:59 / night 18:00–05:59, all from local `Date` getters. The manual time slider overrides only the hour. Particles (snow, foliage) are a fixed pool in typed arrays drawn in one path per colour class; a test fails if 140 particles cost more than 4 ms per frame.
+* **Floor 7** keeps fast food and quick bites; fine dining, specialty cafes and bakeries belong to Floor 8 (`floorForFoodSubcategory`, ambiguous ones reported, never guessed). The far end of Floor 7 is the Gaming Arcade wing (a sign reading "Coming Soon in V3", no gameplay) and the photobooth kiosk sits in the reserved end cap in front of it, never overlapping a storefront at any floor size.
+* **Photobooth**: `PhotoboothController` is a state machine (`requesting → ready → shooting → composing → done`, or `failed` with an avatar fallback). Time is injected, so the 4-shot timeline (3·2·1·flash, capture at flash start) is tested at any frame rate. `CameraSession` owns the stream and is the only code that calls `getUserMedia({ video: true })`.
+
+## 6. Failure behaviour
 
 * Missing/!throwing `localStorage` → memory-only, no crash (tested).
+* Camera denied, missing, plain-HTTP, unplugged mid-shoot or failing to capture → the booth stops the camera, explains why, and offers the avatar-pose fallback.
 * No Web Audio → Sound toggle disabled; no sound is scheduled before the first gesture or while muted.
 * No `Worker` → flat floor band, everything else works.
 * A rejected telemetry event is counted and warned, never thrown into the UI.
 
-## 6. Testing
+## 7. Testing
 
 `npm test` runs ~170 Vitest tests: pure logic (pincode, zones, layout invariants for every floor size 0–1000, movement properties, funnel/heat-map maths), a numeric no-checkerboard test of the marble, component tests under jsdom (gate, directory, elevator, modal, dashboard, export) that also fail on any `console.error`/`warn`, and **offline Web Audio renders** that measure loudness, spectrum, crossfade smoothness and mute silence.

@@ -26,6 +26,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
           <div><b>{fmtInt(sum.events)}</b><span>events logged</span></div>
           <div><b>{fmtInt(sum.sessions)}</b><span>sessions</span></div>
           <div><b>{fmtInt(sum.pincodes)}</b><span>distinct PINs</span></div>
+          <div><b>{fmtInt(sum.photostrips)}</b><span>photostrips made</span></div>
         </div>
         <ConversionFunnel rows={funnel} />
         <AffinityHeatMap map={heat} />

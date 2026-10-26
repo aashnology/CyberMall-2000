@@ -15,7 +15,7 @@ npm run build        # typecheck + production build
 npm run preview
 ```
 
-Controls: sound starts on your first click or keypress (toggle: **Sound** in the top bar) · WASD / arrows or click to walk · wheel to zoom · `M` map · `L` directory · `E` elevator (near the start of the concourse) · `1`–`9` in the elevator.
+Controls: sound starts on your first click or keypress (toggle: **Sound** in the top bar) · WASD / arrows or click to walk · wheel to zoom · `M` map · `L` directory · `E` elevator (near the start of the concourse) or photobooth (Floor 7, near the arcade) · `1`–`9` in the elevator.
 
 ## What is here
 
@@ -39,6 +39,8 @@ Controls: sound starts on your first click or keypress (toggle: **Sound** in the
 
 | Typed telemetry, funnel + PIN×mood heat map, CSV export | `src/analytics/`, `src/components/analytics/` |
 | Spatial audio (synthesised, proximity crossfade, retro SFX, persistent mute) | `src/audio/spatialAudio.ts` |
+| Seasonal + diurnal skybox from the device clock, snow / foliage particles | `src/scene/skybox.ts`, `src/scene/particles.ts` |
+| Floor 7 Food Court and Arcade, photobooth, photostrip export | `src/spatial/landmarks.ts`, `src/scene/floor7Art.ts`, `src/photobooth/`, `src/utils/photostripGenerator.ts` |
 | Documentation | `docs/ARCHITECTURE.md`, `docs/RECOMMENDATION_ENGINE.md`, `docs/ANALYTICS.md` |
 
 ## Utilities
@@ -46,6 +48,7 @@ Controls: sound starts on your first click or keypress (toggle: **Sound** in the
 ```bash
 npm run audit:zones -- file.csv                  # check delivery zones against the India Post directory
 npx tsx scripts/renderAudioDemo.ts demo.wav      # render a listenable demo of the audio engine
+npx tsx scripts/renderPhotostripPreview.ts strip.png 1   # render a sample photostrip from the avatar poses
 ```
 
 ## Scope notes

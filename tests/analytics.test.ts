@@ -25,8 +25,8 @@ const ev = (session: string, type: EventType, item: string | null, pin = '400058
 });
 
 describe('event validation', () => {
-  it('has exactly the seven specified event types and the seven CSV columns', () => {
-    expect([...EVENT_TYPES]).toEqual(['PINCODE_SUBMITTED', 'STORE_IMPRESSION', 'STORE_HOVER_DWELL', 'STORE_MODAL_OPENED', 'PRODUCT_SAVED_LOOKBOOK', 'EXTERNAL_MERCHANT_ROUTED', 'MOOD_SELECTED']);
+  it('has exactly the specified event types (seven core + photobooth) and the seven CSV columns', () => {
+    expect([...EVENT_TYPES]).toEqual(['PINCODE_SUBMITTED', 'STORE_IMPRESSION', 'STORE_HOVER_DWELL', 'STORE_MODAL_OPENED', 'PRODUCT_SAVED_LOOKBOOK', 'EXTERNAL_MERCHANT_ROUTED', 'MOOD_SELECTED', 'PHOTOBOOTH_STRIP_GENERATED']);
     expect([...CSV_COLUMNS]).toEqual(['session_id', 'timestamp', 'pincode', 'event_type', 'item_id', 'match_score', 'user_mood_vector']);
     expect(DWELL_THRESHOLD_MS).toBe(3000);
   });
@@ -235,6 +235,7 @@ describe('mood scoring helpers used by telemetry', () => {
     for (const m of MOODS) for (const sub of Object.keys(m.weights)) expect(scoreEntry(m, { store: { ...store, subcategory: sub }, status: 'not-deliverable', ribbon: null })).toBeLessThanOrEqual(0.15 + 1e-12);
   });
   it('summarize counts events, sessions and PINs', () => {
-    expect(summarize([ev('a', 'STORE_IMPRESSION', 'x1'), ev('b', 'STORE_IMPRESSION', 'x1', '110001')])).toEqual({ events: 2, sessions: 2, pincodes: 2 });
+    expect(summarize([ev('a', 'STORE_IMPRESSION', 'x1'), ev('b', 'STORE_IMPRESSION', 'x1', '110001')])).toEqual({ events: 2, sessions: 2, pincodes: 2, photostrips: 0 });
+    expect(summarize([ev('a', 'PHOTOBOOTH_STRIP_GENERATED', 'photobooth-camera'), ev('a', 'PHOTOBOOTH_STRIP_GENERATED', 'photobooth-avatar')]).photostrips).toBe(2);
   });
 });

@@ -15,6 +15,7 @@ Source of truth: `src/analytics/telemetry.ts` (events, log, CSV), `src/analytics
 | `PRODUCT_SAVED_LOOKBOOK` | "Save to lookbook" is pressed and the store becomes saved | store id | Un-saving emits nothing | `ui/StoreModal.tsx` |
 | `EXTERNAL_MERCHANT_ROUTED` | "Visit merchant" is clicked (opens the merchant's `https` page) | store id | Every click; only stores with a `merchantUrl` offer the link | `ui/StoreModal.tsx` |
 | `MOOD_SELECTED` | A mood is chosen in the Directory drawer | mood id | De-selecting emits nothing | `ui/Directory.tsx` |
+| `PHOTOBOOTH_STRIP_GENERATED` | A 4-frame photostrip has been composed in the Floor 7 photobooth | `photobooth-camera` or `photobooth-avatar` (which source made it) | Once per strip; saving or re-saving emits nothing; **Retake** and a second strip emit again. The images themselves are never logged or uploaded | `photobooth/PhotoboothModal.tsx` |
 
 Each event is validated before it is stored (`validateEvent`). Invalid events are **rejected, counted and warned about**, never silently stored: PIN must be 6 digits, timestamp ISO-8601 UTC, `match_score` within [0,1], ids must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$` (this also rules out CSV formula injection such as a leading `=`).
 
@@ -57,11 +58,16 @@ Because `S_k ⊆ S_{k-1}`, counts never increase down the funnel and drop-off is
   * `engaged` = of those, sessions with ≥ 1 `MOOD_SELECTED` where `item_id = m`. A session counts once per mood however many times it picks it.
 * Clusters with fewer than **5 sessions** are flagged "low n". Small-n percentages are shown but should not be over-read.
 
+### Feature engagement
+
+The dashboard shows **photostrips made** (`count of PHOTOBOOTH_STRIP_GENERATED`) beside the event, session and PIN counts. Camera-versus-avatar split = events grouped by `item_id`. The photobooth is not part of the purchase funnel, so these events never enter the funnel or the heat map.
+
 ## 3. Storage and privacy
 
 * Events are kept in memory and `localStorage` (`cybermall2000.telemetry.v1`), capped at **5,000** events (oldest dropped). Corrupt stored rows are discarded on load; unavailable storage degrades to memory-only.
 * `session_id` is a random UUID created per page load; it is not derived from anything about the visitor.
 * A PIN code is location data. It stays on the device, and the dashboard has a **Clear stored telemetry** button.
+* **Photobooth images are not telemetry.** Frames and strips live only in memory while the booth is open and are dropped on retake or close; only the fact that a strip was made is logged. The camera is stopped the moment the fourth photo is taken and on every exit path (close, Escape, switching panels, errors, a closed prompt).
 
 ## 4. CSV export
 
@@ -72,7 +78,7 @@ Because `S_k ⊆ S_{k-1}`, counts never increase down the funnel and drop-off is
 | `session_id` | string (UUID) | never null | |
 | `timestamp` | ISO-8601 UTC, ms precision | never null | e.g. `2026-10-24T09:15:02.123Z` |
 | `pincode` | string, 6 digits | never null | Keep as text: leading digits are significant for clustering |
-| `event_type` | one of the seven types above | never null | |
+| `event_type` | one of the eight types above | never null | |
 | `item_id` | string | empty | store id, mood id, or empty for `PINCODE_SUBMITTED` |
 | `match_score` | decimal in [0,1], ≤ 4 dp | empty | |
 | `user_mood_vector` | JSON object `{"mood-id": 0 or 1, …}`, keys sorted | empty | Quoted per RFC 4180 because it contains commas |

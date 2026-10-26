@@ -138,11 +138,12 @@ export function computeAffinity(
 
 /* ───────────────────────── headline numbers ───────────────────────── */
 
-export interface Summary { readonly events: number; readonly sessions: number; readonly pincodes: number }
+export interface Summary { readonly events: number; readonly sessions: number; readonly pincodes: number; /** PHOTOBOOTH_STRIP_GENERATED events: feature engagement. */ readonly photostrips: number }
 export function summarize(events: readonly TelemetryEvent[]): Summary {
   return {
     events: events.length,
     sessions: new Set(events.map((e) => e.session_id)).size,
     pincodes: new Set(events.map((e) => e.pincode)).size,
+    photostrips: events.filter((e) => e.event_type === 'PHOTOBOOTH_STRIP_GENERATED').length,
   };
 }

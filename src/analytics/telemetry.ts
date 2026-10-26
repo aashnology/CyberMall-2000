@@ -15,6 +15,7 @@ export const EVENT_TYPES = [
   'PRODUCT_SAVED_LOOKBOOK',
   'EXTERNAL_MERCHANT_ROUTED',
   'MOOD_SELECTED',
+  'PHOTOBOOTH_STRIP_GENERATED',
 ] as const;
 export type EventType = (typeof EVENT_TYPES)[number];
 
