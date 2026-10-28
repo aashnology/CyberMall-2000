@@ -1,18 +1,76 @@
-# CyberMall 2000
-Mood-first 3D digital mall for fashion discovery (laptop only: keyboard + mouse). React + TypeScript + Three.js.
+# CyberMall 2000 · v2
 
-    npm install
-    npm run dev        # http://localhost:5173
-    npm test
-    npm run typecheck
+Hyper-local neighbourhood retail discovery, staged as a C-shaped 2.5D galleria. Author: **Aashna**.
 
-## What is in it
-- Two floors around a central atrium (animated fountain, palms, velvet seating, directory kiosk) and an elevator bank.
-- Wings: apparel, books and stationery, accessories, food, wellness (floor 1); tech, living, luxury archives, cinema, collectibles (floor 2).
-- Pincode delivery engine and a transparent weighted recommendation engine (`src/recommendation/weights.ts`).
-- Blueprint "you are here" map (press M), day-to-night lighting, hidden collectibles that unlock badges and screen filters.
-- Event telemetry (`src/telemetry`) feeding an analytics dashboard with CSV export.
-- Brand logos load at runtime from the web; a text wordmark shows if offline.
+> Discover what genuinely delivers to your doorstep in your new neighbourhood.
 
-## Datasets
-Pincodes (Kaggle)[https://www.kaggle.com/datasets/utkarshrahane/india-pincodes]
+## Run
+
+```bash
+npm install
+npm run dev          # http://localhost:5173
+npm run typecheck    # strict TypeScript
+npm test             # Vitest (logic + component tests)
+npm run build        # typecheck + production build
+npm run preview
+```
+
+Controls: sound starts on your first click or keypress (toggle: **Sound** in the top bar) · WASD / arrows or click to walk · wheel to zoom · `M` map · `L` directory · `E` elevator (near the start of the concourse) or photobooth (Floor 7, near the arcade) · `1`–`9` in the elevator.
+
+## What is here
+
+| Area | Where |
+| --- | --- |
+| Pincode parsing, delivery status, ribbon, directory (never truncates) | `src/engine/pincode.ts` |
+| Delivery-zone graph + India Post ingest/audit | `src/data/pincodeZones.ts`, `src/data/indiaPost.ts` |
+| C-concourse geometry, dense-floor scaling, "You Are Here" path | `src/spatial/concourse.ts` |
+| Polished-marble floor (no checkerboard) | `src/render/marbleFloor.ts` |
+| 2.5D scene: coast, glass wall, atrium waterfall, centerpiece, banners, day/night | `src/scene/drawScene.ts` |
+| Chibi avatar (SVG layers, walk cycle) | `src/avatar/` |
+| Floors, wellness partition (Floor 5 vs 9) | `src/data/types.ts`, `src/data/wellnessPartition.ts` |
+| Floor 6 snapshot fixtures | `src/data/mediaSnapshots.ts` |
+| Mood matching (explainable) | `src/data/moods.ts` |
+
+## Data you must replace or verify
+
+* `src/data/catalog.sample.ts` is **sample data with fictional brands**. Point `src/data/catalog.ts` at the real catalog (same `Store` shape, with `serviceablePincodes`).
+* `src/data/pincodeZones.ts` is **seed data, marked `seed-unverified`**. Download the All-India Pincode Directory CSV (data.gov.in) and run `npm run audit:zones -- path/to/file.csv`; fix what it reports.
+* `src/data/mediaSnapshots.ts` holds **fixtures** (showtimes are illustrative). The UI labels them as sample data.
+
+| Typed telemetry, funnel + PIN×mood heat map, CSV export | `src/analytics/`, `src/components/analytics/` |
+| Spatial audio (synthesised, proximity crossfade, retro SFX, persistent mute) | `src/audio/spatialAudio.ts` |
+| Seasonal + diurnal skybox from the device clock, snow / foliage particles | `src/scene/skybox.ts`, `src/scene/particles.ts` |
+| Floor 7 Food Court and Arcade, photobooth, photostrip export | `src/spatial/landmarks.ts`, `src/scene/floor7Art.ts`, `src/photobooth/`, `src/utils/photostripGenerator.ts` |
+| Documentation | `docs/ARCHITECTURE.md`, `docs/RECOMMENDATION_ENGINE.md`, `docs/ANALYTICS.md` |
+
+## Utilities
+
+```bash
+npm run audit:zones -- file.csv                  # check delivery zones against the India Post directory
+npx tsx scripts/renderAudioDemo.ts demo.wav      # render a listenable demo of the audio engine
+npx tsx scripts/renderPhotostripPreview.ts strip.png 1   # render a sample photostrip from the avatar poses
+```
+
+## Static hosting (GitHub Pages)
+
+The app is a client-side static build: no backend, no external API calls. State, preferences and telemetry live in
+`localStorage`; telemetry leaves the device only through **Export Telemetry (CSV)**.
+
+* `vite.config.ts` sets `base: './'`, so the same `dist/` works at `https://<user>.github.io/<repo>/` or any other path.
+* Verified: with `dist/` served under `/CyberMall-2000/`, the page, CSS, JS, both lazy chunks and the Web Worker all load
+  (HTTP 200), and no absolute `/assets/…` or localhost URL is shipped. Initial JS is ~107 kB gzipped; the analytics
+  dashboard (Recharts) and the photobooth load on demand.
+* Camera access needs a secure context. `github.io` is HTTPS, so the photobooth works there; over plain `http://` (other
+  than `localhost`) it falls back to the avatar poses.
+
+```bash
+npm run build      # writes dist/ (includes a .nojekyll marker)
+npm run preview    # serve dist/ locally
+```
+
+Publish `dist/` with any Pages method (a Pages workflow, or push `dist/` to a `gh-pages` branch). No workflow is committed yet.
+
+## Scope notes
+
+* No CI/CD or deployment workflow is committed; the build is verified Pages-compatible (see above).
+* The analytics dashboard shows only what the visitor's own device recorded; there is no seeded or demo data in the app.
