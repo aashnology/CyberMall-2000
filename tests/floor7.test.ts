@@ -4,6 +4,8 @@ import { DEFAULT_CONCOURSE as S, layoutFloor, worldToConcourse } from '../src/sp
 import { floor7Landmarks, nearPhotobooth, landmarkPositions, PHOTOBOOTH_HALF_WIDTH, PHOTOBOOTH_TRIGGER_RADIUS } from '../src/spatial/landmarks';
 import { PIXEL_FONT, GLYPH_W, GLYPH_H, ARCADE_SIGNS, pixelTextWidth, drawPixelText, drawArcadeWing, drawPhotoboothKiosk, BOOTH_PALETTE } from '../src/scene/floor7Art';
 
+const landmarksCenterpiece = (radius: number): { x: number; y: number; angle: number } => landmarkPositions(S, radius).centerpiece;
+
 describe('Floor 7 landmark geometry', () => {
   it('the photobooth stands on the walkway, in the free end cap, between the last food stall and the arcade, for every floor size', () => {
     for (const n of [0, 1, 5, 24, 48, 120, 400, 1000]) {
@@ -15,12 +17,15 @@ describe('Floor 7 landmark geometry', () => {
       for (const p of l.placements) {
         expect(Math.hypot(p.x - photobooth.x, p.y - photobooth.y)).toBeGreaterThanOrEqual(p.frontage / 2 + PHOTOBOOTH_HALF_WIDTH - 1e-6); // no overlap with any storefront
       }
-      expect(Math.hypot(arcade.x - photobooth.x, arcade.y - photobooth.y)).toBeGreaterThan(5); // the arcade is beyond it
+      expect(Math.hypot(arcade.x - photobooth.x, arcade.y - photobooth.y)).toBeGreaterThan(8); // the arcade is well beyond it
     }
   });
-  it('the arcade occupies the far end (same spot as the other floors\' centerpiece) and the booth is nearer the food court than the arcade is', () => {
+  it('the arcade occupies the far end, set slightly further out than the other floors\' centerpiece, and the booth is nearer the food court than the arcade is', () => {
     const l = layoutFloor(24); const { arcade, photobooth } = floor7Landmarks(S, l.radius);
-    expect(arcade).toEqual(landmarkPositions(S, l.radius).centerpiece);
+    const cp = landmarksCenterpiece(l.radius);
+    expect(Math.hypot(arcade.x - cp.x, arcade.y - cp.y)).toBeGreaterThan(2);       // further out…
+    expect(Math.hypot(arcade.x - cp.x, arcade.y - cp.y)).toBeLessThan(6);          // …but still the same end of the concourse
+    expect(arcade.angle).toBe(cp.angle);
     const last = l.placements[l.placements.length - 1]!;
     expect(Math.hypot(photobooth.x - last.x, photobooth.y - last.y)).toBeLessThan(Math.hypot(arcade.x - last.x, arcade.y - last.y));
   });

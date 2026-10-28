@@ -125,70 +125,129 @@ export function drawArcadeWing(ctx: Ctx, sx: number, sy: number, z: number, t: n
 
 /* ───────────────────────── Photobooth kiosk ───────────────────────── */
 
+/**
+ * The kiosk follows the reference line art (image_721660.png), drawn in the reference's own pixel space
+ * (735 × 750) and scaled into the world:
+ *   a wide three-bay body · "PHOTOBOOTH" sign on two posts over the left two-thirds · framed window of
+ *   featured strips + hand-lettered label · coin/starter unit · wavy curtain with an "enter →" plaque ·
+ *   stool visible under the hem · tall window with glint marks · small cup icon.
+ * Colours: Deep Burgundy body, Antique Gold linework, Warm Champagne curtain / strips / lettering.
+ */
+export const KIOSK_REF = { bodyLeft: 62, bodyRight: 672, bodyTop: 177, bodyBottom: 637, signTop: 76 } as const;
+/** Width of the kiosk in world units (matches PHOTOBOOTH_HALF_WIDTH × 2 in spatial/landmarks.ts). */
+export const KIOSK_WORLD_WIDTH = 8.6;
+
+/** Letter-spaced text centred on (cx, cy), shrunk uniformly if it would be wider than `maxWidth`. */
+function spacedText(ctx: Ctx, text: string, cx: number, cy: number, spacing: number, maxWidth: number): void {
+  const widths = [...text].map((ch) => ctx.measureText(ch).width);
+  const total = widths.reduce((a, b) => a + b, 0) + spacing * (text.length - 1);
+  const k = total > maxWidth ? maxWidth / total : 1;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(k, k); ctx.textAlign = 'left';
+  let x = -total / 2;
+  [...text].forEach((ch, i) => { ctx.fillText(ch, x, 0); x += (widths[i] as number) + spacing; });
+  ctx.restore();
+}
+
 export function drawPhotoboothKiosk(ctx: Ctx, sx: number, sy: number, z: number, t: number, near: boolean): void {
   const { burgundy, gold, champagne } = BOOTH_PALETTE;
-  const W = 5.4 * z, H = 8.6 * z, x0 = sx - W / 2, y0 = sy - H;
+  const bodyW = KIOSK_REF.bodyRight - KIOSK_REF.bodyLeft;
+  const k = (KIOSK_WORLD_WIDTH * z) / bodyW;            // reference px → screen px
+  const lw = Math.max(3.4, 1.3 / k);                     // keep the linework at least ~1.3 screen px
   ctx.save();
-  if (near) { // pulsing welcome glow on the floor
-    const r = (4 + 0.5 * Math.sin(t * 4)) * z;
-    const gl = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+  if (near) { // welcome glow on the floor in front of the door
+    const r = (5 + 0.5 * Math.sin(t * 4)) * z;
+    const gl = ctx.createRadialGradient(sx + 0.9 * z, sy, 0, sx + 0.9 * z, sy, r);
     gl.addColorStop(0, 'rgba(194,141,57,0.55)'); gl.addColorStop(1, 'rgba(194,141,57,0)');
-    ctx.fillStyle = gl; ctx.fillRect(sx - r, sy - r * 0.6, r * 2, r * 1.2);
+    ctx.fillStyle = gl; ctx.fillRect(sx - r, sy - r * 0.55, r * 2.4, r * 1.1);
   }
-  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(sx, sy, W * 0.6, 0.7 * z, 0, 0, Math.PI * 2); ctx.fill(); // contact shadow
-  // body
-  const body = ctx.createLinearGradient(x0, 0, x0 + W, 0);
+  ctx.translate(sx - ((KIOSK_REF.bodyLeft + KIOSK_REF.bodyRight) / 2) * k, sy - KIOSK_REF.bodyBottom * k);
+  ctx.scale(k, k);
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.lineWidth = lw; ctx.strokeStyle = gold;
+  const rect = (x0: number, y0: number, x1: number, y1: number): void => { ctx.beginPath(); ctx.rect(x0, y0, x1 - x0, y1 - y0); };
+
+  ctx.fillStyle = 'rgba(0,0,0,0.22)'; ctx.beginPath(); ctx.ellipse(367, 641, 345, 15, 0, 0, Math.PI * 2); ctx.fill(); // contact shadow
+
+  // body + roof band
+  const body = ctx.createLinearGradient(62, 0, 672, 0);
   body.addColorStop(0, '#5A0710'); body.addColorStop(0.5, burgundy); body.addColorStop(1, '#4C060D');
-  ctx.fillStyle = body; ctx.fillRect(x0, y0 + 2.2 * z, W, H - 2.2 * z);
-  ctx.fillStyle = gold; ctx.fillRect(x0 - 0.15 * z, sy - 0.5 * z, W + 0.3 * z, 0.5 * z); // gold plinth
-  ctx.strokeStyle = gold; ctx.lineWidth = Math.max(1, 0.12 * z); ctx.strokeRect(x0, y0 + 2.2 * z, W, H - 2.7 * z);
+  ctx.fillStyle = body; rect(62, 177, 672, 637); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#4C060D'; rect(62, 177, 672, 205); ctx.fill(); ctx.stroke();
 
-  // marquee box with retro lettering and chase bulbs
-  ctx.fillStyle = burgundy; ctx.fillRect(x0 - 0.2 * z, y0, W + 0.4 * z, 2.3 * z);
-  ctx.strokeStyle = gold; ctx.lineWidth = Math.max(1.5, 0.16 * z); ctx.strokeRect(x0 - 0.2 * z, y0, W + 0.4 * z, 2.3 * z);
-  ctx.fillStyle = champagne; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.font = `700 ${Math.max(8, 0.82 * z)}px Georgia, 'Times New Roman', serif`;
-  const label = 'PHOTOBOOTH';
-  const fit = Math.min(1, (W - 0.8 * z) / ctx.measureText(label).width);
-  ctx.font = `700 ${Math.max(6, 0.82 * z * fit)}px Georgia, 'Times New Roman', serif`;
-  ctx.fillStyle = gold; ctx.fillText(label, sx, y0 + 1.15 * z);
-  for (let i = 0; i < 14; i += 1) {
-    const on = Math.floor(t * 5) % 2 === i % 2;
-    ctx.fillStyle = on ? champagne : withAlpha(champagne, 0.3);
-    ctx.beginPath(); ctx.arc(x0 - 0.05 * z + i * ((W + 0.1 * z) / 13), y0 + 0.2 * z, Math.max(1, 0.14 * z), 0, Math.PI * 2); ctx.fill();
-  }
+  // sign on two posts, over the left two-thirds
+  ctx.fillStyle = gold; rect(104, 158, 124, 178); ctx.fill(); rect(398, 158, 418, 178); ctx.fill();
+  ctx.fillStyle = burgundy; rect(62, 76, 485, 160); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = lw * 0.55; rect(75, 88, 472, 148); ctx.stroke(); ctx.lineWidth = lw;
+  ctx.fillStyle = champagne; ctx.textBaseline = 'middle';
+  ctx.font = "500 50px 'Trebuchet MS', 'Helvetica Neue', Arial, sans-serif";
+  spacedText(ctx, 'PHOTOBOOTH', 273, 120, 6, 372); // fits inside the inner border (397 px)
 
-  // curtain doorway
-  const dx0 = x0 + 1.3 * z, dw = 2.1 * z, dy0 = y0 + 3 * z, dh = 4.6 * z;
-  ctx.fillStyle = '#1A0608'; ctx.fillRect(dx0, dy0, dw, dh);
-  ctx.strokeStyle = gold; ctx.lineWidth = Math.max(1, 0.1 * z); ctx.strokeRect(dx0 - 0.1 * z, dy0 - 0.1 * z, dw + 0.2 * z, dh + 0.2 * z);
-  const sway = Math.sin(t * 1.2) * 0.04 * z;
-  for (const [cxl, dir] of [[dx0, 1], [dx0 + dw, -1]] as const) { // two champagne drapes with folds, tied back
-    ctx.fillStyle = champagne; ctx.beginPath();
-    ctx.moveTo(cxl, dy0); ctx.lineTo(cxl + dir * (dw * 0.62 + sway), dy0);
-    ctx.quadraticCurveTo(cxl + dir * (dw * 0.45), dy0 + dh * 0.5, cxl + dir * (dw * 0.55 + sway), dy0 + dh * 0.82);
-    ctx.lineTo(cxl, dy0 + dh * 0.82); ctx.closePath(); ctx.fill();
-    ctx.strokeStyle = withAlpha(burgundy, 0.35); ctx.lineWidth = Math.max(1, 0.07 * z);
-    for (let k = 1; k <= 3; k += 1) { ctx.beginPath(); ctx.moveTo(cxl + dir * dw * 0.14 * k, dy0); ctx.lineTo(cxl + dir * dw * 0.12 * k, dy0 + dh * 0.82); ctx.stroke(); }
-  }
-  ctx.fillStyle = gold; ctx.fillRect(dx0 - 0.15 * z, dy0 - 0.35 * z, dw + 0.3 * z, 0.3 * z); // curtain rail
-  ctx.fillStyle = withAlpha(burgundy, 0.85); ctx.fillRect(dx0, dy0 + dh * 0.82, dw, dh * 0.18); // valance under the drapes
+  // bay dividers
+  ctx.beginPath(); ctx.moveTo(358, 205); ctx.lineTo(358, 637); ctx.moveTo(548, 205); ctx.lineTo(548, 637); ctx.stroke();
 
-  // sample strips gallery (right)
-  const gx = x0 + 3.7 * z, gy = y0 + 3.1 * z, gw = 1.45 * z, gh = 3.9 * z;
-  ctx.fillStyle = '#2A0408'; ctx.fillRect(gx, gy, gw, gh);
-  ctx.strokeStyle = gold; ctx.lineWidth = Math.max(1, 0.08 * z); ctx.strokeRect(gx, gy, gw, gh);
-  for (let s = 0; s < 3; s += 1) {
-    const sx0 = gx + 0.12 * z + s * 0.46 * z;
-    ctx.fillStyle = champagne; ctx.fillRect(sx0, gy + 0.2 * z, 0.38 * z, gh - 0.4 * z);
-    ctx.fillStyle = withAlpha(burgundy, 0.8);
-    for (let f = 0; f < 4; f++) ctx.fillRect(sx0 + 0.05 * z, gy + 0.3 * z + f * ((gh - 0.8 * z) / 4), 0.28 * z, (gh - 0.8 * z) / 4 - 0.1 * z);
+  // window of featured strips
+  ctx.fillStyle = '#2A0408'; rect(107, 223, 321, 358); ctx.fill(); ctx.stroke();
+  ctx.lineWidth = lw * 0.55; rect(119, 234, 309, 346); ctx.stroke(); ctx.lineWidth = lw;
+  [[149, 252, 78, -0.03], [179, 250, 82, 0.02], [207, 256, 76, 0], [238, 249, 82, 0.03], [265, 252, 80, -0.02]].forEach(([x, y, h, rot]) => {
+    ctx.save(); ctx.translate(x as number + 8, (y as number) + (h as number) / 2); ctx.rotate(rot as number);
+    ctx.fillStyle = champagne; ctx.fillRect(-8, -(h as number) / 2, 16, h as number);
+    ctx.fillStyle = 'rgba(113,9,18,0.85)';
+    for (let f = 0; f < 4; f += 1) ctx.fillRect(-5.5, -(h as number) / 2 + 3 + f * ((h as number) - 6) / 4, 11, ((h as number) - 6) / 4 - 3);
+    ctx.restore();
+  });
+  // hand-lettered label with a curved arrow up to the window
+  ctx.fillStyle = champagne; ctx.strokeStyle = champagne; ctx.lineWidth = lw * 0.5;
+  ctx.font = "italic 24px Georgia, 'Times New Roman', serif"; ctx.textAlign = 'center';
+  ctx.fillText('featured', 301, 412); ctx.fillText('strips', 301, 438);
+  ctx.beginPath(); ctx.moveTo(298, 398); ctx.quadraticCurveTo(326, 392, 308, 368); ctx.moveTo(308, 368); ctx.lineTo(318, 374); ctx.moveTo(308, 368); ctx.lineTo(304, 380); ctx.stroke();
+  ctx.strokeStyle = gold; ctx.lineWidth = lw;
+
+  // coin / starter unit
+  ctx.fillStyle = gold; rect(198, 424, 234, 458); ctx.fill(); ctx.strokeStyle = '#4C060D'; ctx.lineWidth = lw * 0.6; ctx.stroke();
+  ctx.fillStyle = '#4C060D'; for (const [dx, dy] of [[205, 431], [227, 431], [205, 451], [227, 451]] as const) { ctx.beginPath(); ctx.arc(dx, dy, 2.6, 0, Math.PI * 2); ctx.fill(); }
+  ctx.beginPath(); ctx.moveTo(210, 437); ctx.lineTo(216, 446); ctx.lineTo(222, 437); ctx.stroke();
+  ctx.fillStyle = gold; rect(197, 462, 233, 548); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#2A0408'; rect(205, 471, 225, 540); ctx.fill(); ctx.fillStyle = '#12090A'; rect(211, 480, 219, 524); ctx.fill();
+  ctx.strokeStyle = gold; ctx.lineWidth = lw;
+
+  // door: dark interior, stool, then the curtain over it
+  ctx.fillStyle = '#1A0608'; rect(360, 206, 546, 637); ctx.fill();
+  ctx.fillStyle = gold;
+  ctx.beginPath(); ctx.ellipse(488, 607, 38, 11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillRect(479, 520, 18, 86);
+  ctx.beginPath(); ctx.ellipse(473, 505, 50, 17, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#8A5F22'; ctx.lineWidth = lw * 0.6; ctx.beginPath(); ctx.ellipse(473, 505, 50, 17, 0, 0, Math.PI); ctx.stroke(); ctx.strokeStyle = gold; ctx.lineWidth = lw;
+
+  const sway = Math.sin(t * 1.1) * 3;
+  ctx.fillStyle = champagne;
+  ctx.beginPath(); ctx.moveTo(415, 205); ctx.lineTo(548, 205); ctx.lineTo(548, 494);
+  for (let i = 0; i < 6; i += 1) { const x1 = 548 - (i + 1) * ((548 - 428) / 6); ctx.quadraticCurveTo(548 - (i + 0.5) * ((548 - 428) / 6), i % 2 === 0 ? 506 : 484, x1, 496 + (i % 2) * 4); }
+  ctx.bezierCurveTo(424 + sway, 420, 434 - sway, 330, 415, 205); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(113,9,18,0.42)'; ctx.lineWidth = lw * 0.7;
+  for (let i = 0; i < 6; i += 1) {
+    const x0 = 432 + i * 20;
+    ctx.beginPath(); ctx.moveTo(x0, 208);
+    ctx.bezierCurveTo(x0 + 9 + sway * 0.5, 280, x0 - 9, 360, x0 + 4 + sway * 0.4, 420);
+    ctx.bezierCurveTo(x0 + 8, 450, x0 - 3, 470, x0 + 2, 492); ctx.stroke();
   }
-  // coin / starter slot (left)
-  const px0 = x0 + 0.25 * z, py0 = y0 + 3.3 * z;
-  ctx.fillStyle = gold; ctx.fillRect(px0, py0, 0.82 * z, 2.2 * z);
-  ctx.fillStyle = '#1A0608'; ctx.fillRect(px0 + 0.3 * z, py0 + 0.35 * z, 0.22 * z, 0.8 * z); // the slot
-  ctx.fillStyle = burgundy; ctx.beginPath(); ctx.arc(px0 + 0.41 * z, py0 + 1.6 * z, 0.22 * z, 0, Math.PI * 2); ctx.fill(); // start button
-  ctx.fillStyle = champagne; ctx.beginPath(); ctx.arc(px0 + 0.41 * z, py0 + 1.6 * z, 0.09 * z, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = gold; ctx.lineWidth = lw; ctx.beginPath(); ctx.moveTo(405, 205); ctx.lineTo(548, 205); ctx.stroke(); // curtain rail
+
+  // "enter →" plaque
+  ctx.fillStyle = champagne; ctx.strokeStyle = near ? gold : burgundy; ctx.lineWidth = lw * 1.3;
+  ctx.beginPath(); ctx.roundRect?.(387, 353, 140, 58, 5); if (ctx.roundRect === undefined) ctx.rect(387, 353, 140, 58); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = burgundy; ctx.textAlign = 'center'; ctx.font = "600 31px 'Trebuchet MS', 'Helvetica Neue', Arial, sans-serif"; ctx.fillText('enter', 436, 383);
+  ctx.strokeStyle = burgundy; ctx.lineWidth = lw * 0.9;
+  ctx.beginPath(); ctx.moveTo(496, 370); ctx.lineTo(509, 370); ctx.lineTo(509, 394); ctx.lineTo(496, 394);
+  ctx.moveTo(476, 382); ctx.lineTo(504, 382); ctx.moveTo(495, 373); ctx.lineTo(504, 382); ctx.lineTo(495, 391); ctx.stroke();
+
+  // tall window with glint marks
+  const glass = ctx.createLinearGradient(570, 224, 648, 386);
+  glass.addColorStop(0, '#2B0F14'); glass.addColorStop(1, '#14080A');
+  ctx.fillStyle = glass; ctx.strokeStyle = gold; ctx.lineWidth = lw; rect(570, 224, 648, 386); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = 'rgba(239,229,210,0.75)'; ctx.lineWidth = lw * 0.7;
+  ctx.beginPath(); ctx.moveTo(589, 247); ctx.lineTo(609, 234); ctx.moveTo(593, 254); ctx.lineTo(612, 241); ctx.moveTo(609, 368); ctx.lineTo(628, 356); ctx.moveTo(613, 375); ctx.lineTo(631, 363); ctx.stroke();
+
+  // little cup icon, bottom right
+  ctx.strokeStyle = 'rgba(239,229,210,0.65)'; ctx.lineWidth = lw * 0.6;
+  ctx.beginPath(); ctx.moveTo(632, 596); ctx.lineTo(656, 596); ctx.lineTo(652, 626); ctx.lineTo(636, 626); ctx.closePath(); ctx.moveTo(630, 590); ctx.lineTo(658, 590); ctx.stroke();
   ctx.restore();
 }

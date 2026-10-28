@@ -15,7 +15,7 @@ async function main(): Promise<void> {
     drawAvatarFrame(c.getContext('2d') as unknown as CanvasRenderingContext2D, img as unknown as CanvasImageSource, i);
     frames.push({ source: c as unknown as CanvasImageSource, width: FRAME_W, height: FRAME_H });
   }
-  const strip = generatePhotostrip(frames, { scale: Number(process.argv[3] ?? 1), date: new Date('2026-10-24T18:12:00'), createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas });
+  const strip = generatePhotostrip(frames, { scale: Number(process.argv[3] ?? 1), createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas });
   writeFileSync(process.argv[2] ?? '/tmp/strip.png', (strip as unknown as { toBuffer(m: string): Buffer }).toBuffer('image/png'));
   writeFileSync('/tmp/strip.txt', `${strip.width}x${strip.height}`);
 }

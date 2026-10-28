@@ -16,9 +16,9 @@ export function landmarkPositions(spec: ConcourseSpec, radius: number): { elevat
 }
 
 /** The booth's "Enter Photobooth" prompt appears within this many world units of its kiosk. */
-export const PHOTOBOOTH_TRIGGER_RADIUS = 4.6;
+export const PHOTOBOOTH_TRIGGER_RADIUS = 5.6;
 /** Half the kiosk's footprint, used to keep it clear of storefronts. */
-export const PHOTOBOOTH_HALF_WIDTH = 2.6;
+export const PHOTOBOOTH_HALF_WIDTH = 4.3;
 
 export interface Floor7Landmarks {
   /** The Gaming Arcade wing occupies the far end of the concourse (where other floors have the centerpiece). */
@@ -29,10 +29,14 @@ export interface Floor7Landmarks {
 
 export function floor7Landmarks(spec: ConcourseSpec, radius: number): Floor7Landmarks {
   const half = spec.walkwayWidth / 2;
-  const t = 1 - spec.endMargin / 2; // middle of the free end cap: no storefront is ever placed here
+  const t = 1 - spec.endMargin * 0.45; // inside the free end cap: no storefront is ever placed here
   const p = concourseToWorld(spec, radius, t, half - 1.8);
+  // The arcade is set further out than the other floors' centerpiece so the booth stands clear in front of its marquee.
+  const a1 = spec.startAngle + spec.sweep;
+  const end = concourseToWorld(spec, radius, 1, 0);
+  const push = spec.walkwayWidth * 1.15;
   return {
-    arcade: landmarkPositions(spec, radius).centerpiece,
+    arcade: { x: end.x - Math.sin(a1) * push, y: end.y + Math.cos(a1) * push, angle: a1 },
     photobooth: { x: p.x, y: p.y, angle: spec.startAngle + spec.sweep * t },
   };
 }

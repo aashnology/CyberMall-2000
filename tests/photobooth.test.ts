@@ -6,7 +6,7 @@ import { PhotoboothController, type BoothMode, type ControllerDeps } from '../sr
 import { captureVideoFrame } from '../src/photobooth/captureFrame';
 import { AVATAR_POSES, avatarPoseSvg } from '../src/photobooth/avatarFrames';
 import { DEFAULT_AVATAR } from '../src/avatar/config';
-import { generatePhotostrip, coverRect, stripFilename, canvasToBlob, formatStripDate, STRIP, STRIP_HEIGHT, frameTop, sprocketCount, STICKER_PLACEMENTS, type StripCanvas, type StripFrame } from '../src/utils/photostripGenerator';
+import { generatePhotostrip, coverRect, stripFilename, canvasToBlob, formatStripDate, STRIP, STRIP_HEIGHT, STRIP_MARGIN, frameTop, sprocketCount, sprocketTop, STICKER_PLACEMENTS, type StripCanvas, type StripFrame } from '../src/utils/photostripGenerator';
 import { STICKER_KINDS } from '../src/utils/stickers';
 
 /* ───────── fakes ───────── */
@@ -234,38 +234,79 @@ describe('avatar fallback poses', () => {
   });
 });
 
-describe('photostrip generator', () => {
+describe('photostrip generator (matches the reference template)', () => {
   const solid = (c: string): StripFrame => { const cv = createCanvas(300, 200); const x = cv.getContext('2d'); x.fillStyle = c; x.fillRect(0, 0, 300, 200); return { source: cv as unknown as CanvasImageSource, width: 300, height: 200 }; };
-  const make = (scale = 1): { canvas: StripCanvas; px: (x: number, y: number) => [number, number, number] } => {
-    const canvas = generatePhotostrip(['#ff0000', '#00ff00', '#0000ff', '#ffff00'].map(solid), { scale, date: new Date(2026, 9, 24, 18, 12), createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas });
+  const make = (scale = 1, stamp = false): { canvas: StripCanvas; px: (x: number, y: number) => [number, number, number] } => {
+    const canvas = generatePhotostrip(['#ff0000', '#00ff00', '#0000ff', '#ffff00'].map(solid), { scale, stamp, date: new Date(2026, 9, 24, 18, 12), createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas });
     const ctx = (canvas as unknown as ReturnType<typeof createCanvas>).getContext('2d');
-    return { canvas, px: (x, y) => { const d = ctx.getImageData(Math.round(x * scale), Math.round(y * scale), 1, 1).data; return [d[0] as number, d[1] as number, d[2] as number]; } };
+    // film coordinates → pixels (the film sits inside a backdrop margin)
+    return { canvas, px: (x, y) => { const d = ctx.getImageData(Math.round((x + STRIP_MARGIN) * scale), Math.round((y + STRIP_MARGIN) * scale), 1, 1).data; return [d[0] as number, d[1] as number, d[2] as number]; } };
   };
-  it('stacks exactly four frames in a 35 mm strip of the documented size, hi-res at 2×', () => {
-    expect(STRIP.frames).toBe(4); expect(STRIP_HEIGHT).toBe(STRIP.top + 4 * STRIP.frameH + 3 * STRIP.gap + STRIP.bottom);
-    const m1 = make(1); expect([m1.canvas.width, m1.canvas.height]).toEqual([760, STRIP_HEIGHT]);
-    const m2 = make(2); expect([m2.canvas.width, m2.canvas.height]).toEqual([1520, STRIP_HEIGHT * 2]);
-    expect(() => generatePhotostrip([solid('#f00')], { createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas })).toThrow(/exactly 4 frames/);
-    expect(() => generatePhotostrip([1, 2, 3, 4].map(() => solid('#fff')), { scale: 9, createCanvas: (w, h) => createCanvas(w, h) as unknown as StripCanvas })).toThrow(RangeError);
+  const lum = (c: [number, number, number]): number => (c[0] + c[1] + c[2]) / 3;
+
+  it('has the template\'s proportions: 4 landscape windows, thin bars, wide rails, ~4.3 holes per frame', () => {
+    expect(STRIP.frames).toBe(4);
+    expect(STRIP.frameW / STRIP.frameH).toBeGreaterThan(1.3); expect(STRIP.frameW / STRIP.frameH).toBeLessThan(1.45);   // measured 1.33–1.4
+    expect(STRIP.gap / STRIP.frameH).toBeGreaterThan(0.09); expect(STRIP.gap / STRIP.frameH).toBeLessThan(0.14);         // bars are ~11% of a window
+    expect(STRIP.holeW).toBeGreaterThan(STRIP.holeH);                                                                    // landscape holes (33 × 24.5 in the template)
+    expect((STRIP.frameH + STRIP.gap) / STRIP.holePitch).toBeGreaterThan(4.1); expect((STRIP.frameH + STRIP.gap) / STRIP.holePitch).toBeLessThan(4.5);
+    expect(STRIP.width / STRIP_HEIGHT).toBeGreaterThan(0.40); expect(STRIP.width / STRIP_HEIGHT).toBeLessThan(0.46);     // template film is 0.44
+    expect(STRIP_HEIGHT).toBe(STRIP.top + 4 * STRIP.frameH + 3 * STRIP.gap + STRIP.bottom);
+  });
+  it('output size = film + backdrop margin, hi-res at 2×; bad input is rejected', () => {
+    const w = STRIP.width + 2 * STRIP_MARGIN; const h = STRIP_HEIGHT + 2 * STRIP_MARGIN;
+    expect([make(1).canvas.width, make(1).canvas.height]).toEqual([w, h]);
+    expect([make(2).canvas.width, make(2).canvas.height]).toEqual([w * 2, h * 2]);
+    expect(() => generatePhotostrip([solid('#f00')], { createCanvas: (a, b) => createCanvas(a, b) as unknown as StripCanvas })).toThrow(/exactly 4 frames/);
+    expect(() => generatePhotostrip([1, 2, 3, 4].map(() => solid('#fff')), { scale: 9, createCanvas: (a, b) => createCanvas(a, b) as unknown as StripCanvas })).toThrow(RangeError);
   });
   it('puts frame i in slot i, top to bottom (red, green, blue, yellow dominate their slots)', () => {
     const { px } = make();
-    const at = (i: number): [number, number, number] => px(STRIP.railW + STRIP.frameW / 2 + 140, frameTop(i) + STRIP.frameH / 2 + 80);
+    const at = (i: number): [number, number, number] => px(STRIP.railW + STRIP.frameW / 2 + 120, frameTop(i) + STRIP.frameH / 2 + 60);
     const [r, g, b, y] = [at(0), at(1), at(2), at(3)];
     expect(r[0]).toBeGreaterThan(r[1] + 100); expect(g[1]).toBeGreaterThan(g[0] + 100); expect(b[2]).toBeGreaterThan(b[0] + 100); expect(y[0] + y[1]).toBeGreaterThan(y[2] * 3);
   });
-  it('has a dark film base and light sprocket holes down BOTH rails, with the right hole count', () => {
+  it('is plain film: dark base, light landscape sprocket holes down BOTH rails, and NO title or footer ribbon', () => {
     const { px } = make();
-    const lum = (c: [number, number, number]): number => (c[0] + c[1] + c[2]) / 3;
-    expect(lum(px(10, 400))).toBeLessThan(60);
-    for (const x of [26 + STRIP.holeW / 2, STRIP.width - 26 - STRIP.holeW / 2]) { expect(lum(px(x, 30 + STRIP.holeH / 2))).toBeGreaterThan(200); expect(lum(px(x, 30 + STRIP.holeH + 16))).toBeLessThan(80); }
-    expect(sprocketCount()).toBe(Math.floor((STRIP_HEIGHT - 60) / STRIP.holePitch) + 1);
+    expect(lum(px(STRIP.width / 2, 20))).toBeLessThan(60);                 // top bar is film, not a title
+    expect(lum(px(STRIP.width / 2, STRIP_HEIGHT - 20))).toBeLessThan(60);  // bottom bar is film, not a ribbon
+    const leftHoleX = STRIP.railW - STRIP.holeInner - STRIP.holeW; const rightHoleX = STRIP.width - STRIP.railW + STRIP.holeInner;
+    // holes that no sticker covers: left rail top, right rail middle (stickers overlap the others, as in the template)
+    for (const [x0, ks] of [[leftHoleX, [0, 1]], [rightHoleX, [3, 6]]] as const) {
+      for (const k of ks) {
+        expect(lum(px(x0 + STRIP.holeW / 2, sprocketTop(k) + STRIP.holeH / 2)), `hole ${k}`).toBeGreaterThan(180);          // the hole
+        expect(lum(px(x0 + STRIP.holeW / 2, sprocketTop(k) + STRIP.holeH + (STRIP.holePitch - STRIP.holeH) / 2))).toBeLessThan(80); // the film between holes
+      }
+    }
+    expect(sprocketTop(sprocketCount() - 1) + STRIP.holeH).toBeLessThanOrEqual(STRIP_HEIGHT - 4);
+    expect(sprocketTop(sprocketCount()) + STRIP.holeH).toBeGreaterThan(STRIP_HEIGHT - 4);
   });
-  it('carries the four required stickers, each placed on the strip', () => {
-    expect(STICKER_KINDS).toEqual(['cassette', 'clock', 'starfish', 'hibiscus']);
-    expect(STICKER_PLACEMENTS.map((s) => s.kind).sort()).toEqual([...STICKER_KINDS].sort());
+  it('prints the amber frame numbers in the outer rail margins (not in the gaps between frames)', () => {
     const { px } = make();
-    for (const s of STICKER_PLACEMENTS) { expect(s.x).toBeGreaterThan(0); expect(s.x).toBeLessThan(STRIP.width); expect(s.y).toBeLessThan(STRIP_HEIGHT); const c = px(s.x, s.y); expect(c[0] + c[1] + c[2]).toBeGreaterThan(90); } // not film-black underneath
+    const amber = (x0: number, x1: number, y0: number, y1: number): number => { let n = 0; for (let x = x0; x < x1; x += 2) for (let y = y0; y < y1; y += 2) { const c = px(x, y); if (c[0] > 170 && c[1] > 110 && c[2] < 110) n += 1; } return n; };
+    // frames whose rail margin no sticker covers (hibiscus: frame 1 right; starfish: frames 1 left; cassette: frame 4 right; clock: frame 3 left)
+    for (const i of [1, 2]) { const y = frameTop(i); expect(amber(STRIP.width - 40, STRIP.width - 4, y + STRIP.frameH * 0.5, y + STRIP.frameH * 0.78), `right ${i + 1}`).toBeGreaterThan(8); }
+    for (const i of [1, 3]) { const y = frameTop(i); expect(amber(4, 40, y + STRIP.frameH * 0.5, y + STRIP.frameH * 0.78), `left ${i + 1}`).toBeGreaterThan(8); }
+    expect(amber(220, STRIP.width - 220, frameTop(1) + STRIP.frameH + 2, frameTop(2) - 2)).toBe(0); // the bar between frames 2 and 3 is empty film (no numbers in the gaps)
+  });
+  it('carries the four stickers where the template puts them: hibiscus top-right, starfish top-left, clock bottom-left, cassette bottom-right', () => {
+    expect(STICKER_KINDS).toEqual(['cassette', 'clock', 'starfish', 'hibiscus']);
+    const at = (k: string): { x: number; y: number } => STICKER_PLACEMENTS.find((s) => s.kind === k) as { x: number; y: number };
+    expect(at('hibiscus').x).toBeGreaterThan(STRIP.width * 0.7); expect(at('hibiscus').y).toBeLessThan(STRIP_HEIGHT * 0.2);
+    expect(at('starfish').x).toBeLessThan(STRIP.width * 0.3);    expect(at('starfish').y).toBeLessThan(STRIP_HEIGHT * 0.3);
+    expect(at('clock').x).toBeLessThan(STRIP.width * 0.3);       expect(at('clock').y).toBeGreaterThan(STRIP_HEIGHT * 0.6);
+    expect(at('cassette').x).toBeGreaterThan(STRIP.width * 0.7); expect(at('cassette').y).toBeGreaterThan(STRIP_HEIGHT * 0.75);
+    const { px } = make();
+    for (const s of STICKER_PLACEMENTS) { // sticker, not bare film: some point near its centre is clearly brighter than the film base (sum 70)
+      const d = s.size * 0.14; const sums = [-d, 0, d].flatMap((dx) => [-d, 0, d].map((dy) => { const c = px(s.x + dx, s.y + dy); return c[0] + c[1] + c[2]; }));
+      expect(Math.max(...sums), s.kind).toBeGreaterThan(250);
+    }
+    // every sticker stays inside the canvas (overhang is limited by the backdrop margin)
+    for (const s of STICKER_PLACEMENTS) { expect(s.x - s.size * 0.42).toBeGreaterThanOrEqual(-STRIP_MARGIN - 20); expect(s.x + s.size * 0.42).toBeLessThanOrEqual(STRIP.width + STRIP_MARGIN + 20); }
+  });
+  it('the date stamp is off by default (the template has none) and appears only when asked', () => {
+    const count = (stamp: boolean): number => { const { px } = make(1, stamp); let n = 0; for (let x = STRIP.width / 2 - 90; x < STRIP.width / 2 + 90; x += 2) for (let y = STRIP_HEIGHT - 44; y < STRIP_HEIGHT - 6; y += 2) { const c = px(x, y); if (c[0] > 170 && c[1] > 110 && c[2] < 110) n += 1; } return n; };
+    expect(count(false)).toBe(0); expect(count(true)).toBeGreaterThan(20);
   });
   it('coverRect crops to fill without distortion', () => {
     expect(coverRect(1280, 720, 600, 450)).toEqual({ sx: (1280 - 960) / 2, sy: 0, sw: 960, sh: 720 });
@@ -273,7 +314,7 @@ describe('photostrip generator', () => {
     const c = coverRect(1000, 1000, 600, 450); expect(c.sw / c.sh).toBeCloseTo(600 / 450, 12);
     expect(() => coverRect(0, 5, 1, 1)).toThrow(RangeError);
   });
-  it('names exports by local time and format, and formats the footer date', () => {
+  it('names exports by local time and format, and formats the stamp date', () => {
     expect(stripFilename('png', new Date(2026, 9, 24, 9, 5, 3))).toBe('cybermall_photostrip_20261024-090503.png');
     expect(stripFilename('jpeg', new Date(2026, 0, 2, 23, 59, 59))).toBe('cybermall_photostrip_20260102-235959.jpg');
     expect(formatStripDate(new Date(2026, 11, 5))).toBe('05 DEC 2026');
@@ -285,7 +326,7 @@ describe('photostrip generator', () => {
     expect(calls).toEqual([['image/png', undefined], ['image/jpeg', 0.92]]);
     await expect(canvasToBlob({ toBlob: (cb) => cb(null) }, 'png')).rejects.toThrow(/PNG/);
   });
-  it('a real encode round-trips: the PNG and JPEG buffers have the right magic bytes and size', () => {
+  it('a real encode round-trips: the PNG and JPEG buffers have the right magic bytes', () => {
     const { canvas } = make(1); const c = canvas as unknown as { toBuffer(mime: string, quality?: number): Buffer };
     expect(c.toBuffer('image/png').subarray(0, 4).toString('hex')).toBe('89504e47');
     expect(c.toBuffer('image/jpeg', 92).subarray(0, 3).toString('hex')).toBe('ffd8ff');

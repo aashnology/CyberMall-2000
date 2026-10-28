@@ -11,15 +11,22 @@ import { drawSticker, type StickerKind } from './stickers';
 
 type Ctx = CanvasRenderingContext2D;
 
-/** Logical (1×) layout in px. The output canvas is this × `scale`. */
+/**
+ * Logical (1×) layout in px, measured from the reference template (image_721733.png):
+ * 4:3-ish landscape windows stacked vertically, thin bars between them, wide rails with LANDSCAPE sprocket
+ * holes (≈ 4.3 holes per frame), no title or footer: just film.
+ */
 export const STRIP = {
-  width: 760, railW: 80, frameW: 600, frameH: 450, gap: 34, top: 124, bottom: 156, frames: 4,
-  holeW: 30, holeH: 42, holePitch: 76,
+  width: 824, railW: 112, frameW: 600, frameH: 428, gap: 50, top: 50, bottom: 50, frames: 4,
+  holeW: 68, holeH: 51, holePitch: 111, holeTop: 8, holeInner: 4,
 } as const;
+/** Backdrop around the film so stickers can overhang its edge, as they do in the template. */
+export const STRIP_MARGIN = 64;
 
+/** Height of the film itself (without the backdrop margin). */
 export const STRIP_HEIGHT = STRIP.top + STRIP.frames * STRIP.frameH + (STRIP.frames - 1) * STRIP.gap + STRIP.bottom;
 
-const COLORS = { film: '#17100C', filmHi: '#251A13', burgundy: '#710912', gold: '#C28D39', goldHi: '#F1D58C', champagne: '#EFE5D2', amber: '#D9A24A' } as const;
+const COLORS = { film: '#1B1816', filmHi: '#2A241F', backdrop: '#EFE5D2', hole: '#D4CDC1', champagne: '#EFE5D2', amber: '#D9A441' } as const;
 
 export interface StripFrame {
   readonly source: CanvasImageSource;
@@ -36,17 +43,23 @@ export interface StripCanvas {
 }
 
 export interface StripOptions {
-  /** Output pixel density; 2 gives a 1520 × 4,656 px strip. */
+  /** Output pixel density; 2 gives a 1,904 × 4,180 px strip. */
   readonly scale?: number;
   readonly date?: Date;
+  /** Print a small date in the bottom film margin. Off by default: the reference template has none. */
+  readonly stamp?: boolean;
   readonly createCanvas?: (width: number, height: number) => StripCanvas;
 }
 
+/**
+ * Sticker placement in film coordinates, mapped from the template: pink hibiscus top-right over the rail,
+ * thin starfish top-left across the left rail and frame 1, clock bottom-left, cassette bottom-right.
+ */
 export const STICKER_PLACEMENTS: ReadonlyArray<{ readonly kind: StickerKind; readonly x: number; readonly y: number; readonly size: number; readonly rot: number }> = [
-  { kind: 'cassette', x: 612, y: 150, size: 168, rot: -0.2 },
-  { kind: 'clock', x: 94, y: 996, size: 150, rot: 0.2 },
-  { kind: 'starfish', x: 652, y: 1700, size: 142, rot: 0.34 },
-  { kind: 'hibiscus', x: 112, y: STRIP_HEIGHT - 128, size: 176, rot: -0.32 },
+  { kind: 'hibiscus', x: 748, y: 138, size: 250, rot: 0.1 },
+  { kind: 'starfish', x: 100, y: 430, size: 420, rot: -0.1 },
+  { kind: 'clock', x: 72, y: 1384, size: 316, rot: 0 },
+  { kind: 'cassette', x: 728, y: 1722, size: 350, rot: -1.2 },
 ];
 
 /** Source rectangle that fills `dw × dh` from an `sw × sh` image without distortion (CSS object-fit: cover). */
@@ -58,7 +71,10 @@ export function coverRect(sw: number, sh: number, dw: number, dh: number): { sx:
 }
 
 export function frameTop(i: number): number { return STRIP.top + i * (STRIP.frameH + STRIP.gap); }
-export function sprocketCount(): number { return Math.floor((STRIP_HEIGHT - 60) / STRIP.holePitch) + 1; }
+/** Whole holes that fit on each rail (the last one stays clear of the bottom edge). */
+export function sprocketCount(): number { return Math.floor((STRIP_HEIGHT - 4 - STRIP.holeH - STRIP.holeTop) / STRIP.holePitch) + 1; }
+/** Top of sprocket hole `k` (the same on both rails). */
+export function sprocketTop(k: number): number { return STRIP.holeTop + k * STRIP.holePitch; }
 
 export function formatStripDate(d: Date): string {
   const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -73,73 +89,61 @@ export function generatePhotostrip(frames: readonly StripFrame[], opts: StripOpt
   if (frames.length !== STRIP.frames) throw new RangeError(`A photostrip needs exactly ${STRIP.frames} frames, got ${frames.length}`);
   const scale = opts.scale ?? 2;
   if (!(scale > 0 && scale <= 4)) throw new RangeError('scale must be in (0, 4]');
-  const date = opts.date ?? new Date();
-  const canvas = (opts.createCanvas ?? defaultCanvas)(Math.round(STRIP.width * scale), Math.round(STRIP_HEIGHT * scale));
+  const canvas = (opts.createCanvas ?? defaultCanvas)(Math.round((STRIP.width + 2 * STRIP_MARGIN) * scale), Math.round((STRIP_HEIGHT + 2 * STRIP_MARGIN) * scale));
   const ctx = canvas.getContext('2d') as Ctx | null;
   if (ctx === null) throw new Error('2D canvas is not available');
   ctx.save();
   ctx.scale(scale, scale);
+  ctx.fillStyle = COLORS.backdrop; ctx.fillRect(0, 0, STRIP.width + 2 * STRIP_MARGIN, STRIP_HEIGHT + 2 * STRIP_MARGIN);
+  ctx.translate(STRIP_MARGIN, STRIP_MARGIN);
   ctx.textBaseline = 'middle';
 
   // film base
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 16; ctx.shadowOffsetY = 4;
+  ctx.fillStyle = COLORS.film; roundRect(ctx, 0, 0, STRIP.width, STRIP_HEIGHT, 6); ctx.fill(); ctx.restore();
   const base = ctx.createLinearGradient(0, 0, STRIP.width, 0);
-  base.addColorStop(0, COLORS.filmHi); base.addColorStop(0.08, COLORS.film); base.addColorStop(0.92, COLORS.film); base.addColorStop(1, COLORS.filmHi);
-  ctx.fillStyle = base; ctx.fillRect(0, 0, STRIP.width, STRIP_HEIGHT);
-  ctx.strokeStyle = 'rgba(239,229,210,0.18)'; ctx.lineWidth = 2;
-  ctx.strokeRect(1, 1, STRIP.width - 2, STRIP_HEIGHT - 2);
+  base.addColorStop(0, COLORS.filmHi); base.addColorStop(0.1, COLORS.film); base.addColorStop(0.9, COLORS.film); base.addColorStop(1, COLORS.filmHi);
+  ctx.fillStyle = base; roundRect(ctx, 0, 0, STRIP.width, STRIP_HEIGHT, 6); ctx.fill();
 
-  // sprocket holes down both rails
+  // landscape sprocket holes down both rails
   const n = sprocketCount();
-  for (const x of [26, STRIP.width - 26 - STRIP.holeW]) {
+  for (const x of [STRIP.railW - STRIP.holeInner - STRIP.holeW, STRIP.width - STRIP.railW + STRIP.holeInner]) {
     for (let k = 0; k < n; k += 1) {
-      const y = 30 + k * STRIP.holePitch;
-      ctx.fillStyle = '#F2E8D6'; roundRect(ctx, x, y, STRIP.holeW, STRIP.holeH, 8); ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 1.5; roundRect(ctx, x + 1, y + 1, STRIP.holeW - 2, STRIP.holeH - 2, 7); ctx.stroke();
+      const y = sprocketTop(k);
+      ctx.fillStyle = COLORS.hole; roundRect(ctx, x, y, STRIP.holeW, STRIP.holeH, 9); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth = 2; roundRect(ctx, x + 1, y + 1, STRIP.holeW - 2, STRIP.holeH - 2, 8); ctx.stroke();
     }
   }
-  // edge print running down each rail
-  ctx.fillStyle = 'rgba(217,162,74,0.55)'; ctx.font = "600 11px 'Courier New', monospace"; ctx.textAlign = 'center';
-  for (const [x, dir] of [[66, -1], [STRIP.width - 66, 1]] as const) {
-    ctx.save(); ctx.translate(x, STRIP_HEIGHT / 2); ctx.rotate((dir * Math.PI) / 2);
-    ctx.fillText('CYBERMALL 2000  ·  SAFETY FILM  ·  400', 0, 0); ctx.restore();
-  }
-
-  // title
-  ctx.textAlign = 'center';
-  ctx.fillStyle = COLORS.gold; ctx.font = "700 44px Georgia, 'Times New Roman', serif";
-  ctx.fillText('CYBERMALL 2000', STRIP.width / 2, 48);
-  ctx.fillStyle = COLORS.champagne; ctx.font = "600 17px 'Courier New', monospace";
-  ctx.fillText('★  P H O T O B O O T H  ★', STRIP.width / 2, 84);
-  ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 1.6;
-  ctx.beginPath(); ctx.moveTo(STRIP.railW + 40, 102); ctx.lineTo(STRIP.width - STRIP.railW - 40, 102); ctx.stroke();
 
   // frames
   frames.forEach((f, i) => {
     const x = STRIP.railW; const y = frameTop(i);
     const c = coverRect(f.width, f.height, STRIP.frameW, STRIP.frameH);
     ctx.save();
-    roundRect(ctx, x, y, STRIP.frameW, STRIP.frameH, 6); ctx.clip();
+    roundRect(ctx, x, y, STRIP.frameW, STRIP.frameH, 4); ctx.clip();
     ctx.drawImage(f.source, c.sx, c.sy, c.sw, c.sh, x, y, STRIP.frameW, STRIP.frameH);
-    ctx.fillStyle = 'rgba(239,229,210,0.07)'; ctx.fillRect(x, y, STRIP.frameW, STRIP.frameH); // warm film cast
+    ctx.fillStyle = 'rgba(239,229,210,0.06)'; ctx.fillRect(x, y, STRIP.frameW, STRIP.frameH); // warm film cast
     const vg = ctx.createRadialGradient(x + STRIP.frameW / 2, y + STRIP.frameH / 2, STRIP.frameH * 0.45, x + STRIP.frameW / 2, y + STRIP.frameH / 2, STRIP.frameW * 0.72);
-    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(20,8,4,0.38)');
+    vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(20,8,4,0.34)');
     ctx.fillStyle = vg; ctx.fillRect(x, y, STRIP.frameW, STRIP.frameH);
     ctx.restore();
-    ctx.strokeStyle = COLORS.champagne; ctx.lineWidth = 3; roundRect(ctx, x, y, STRIP.frameW, STRIP.frameH, 6); ctx.stroke();
-    // 35 mm edge numbers in the gap above each frame
-    ctx.fillStyle = COLORS.amber; ctx.font = "700 14px 'Courier New', monospace";
-    ctx.textAlign = 'left'; ctx.fillText(`▶ ${i + 1}`, x + 2, y - 13);
-    ctx.textAlign = 'right'; ctx.fillText(`${i + 1}A`, x + STRIP.frameW - 2, y - 13);
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 3; roundRect(ctx, x, y, STRIP.frameW, STRIP.frameH, 4); ctx.stroke();
+
+    // 35 mm edge print in the outer margin of each rail, as in the template: frame number, and a "▷ nA" half-frame marker
+    ctx.fillStyle = COLORS.amber; ctx.strokeStyle = COLORS.amber; ctx.textAlign = 'center';
+    ctx.font = "700 34px 'Arial Narrow', Arial, sans-serif";
+    ctx.save(); ctx.translate(STRIP.width - 21, y + STRIP.frameH * 0.62); ctx.rotate(Math.PI / 2); ctx.fillText(String(i + 1), 0, 0); ctx.restore();
+    ctx.save(); ctx.translate(21, y + STRIP.frameH * 0.62); ctx.rotate(-Math.PI / 2); ctx.fillText(String(i + 1), 0, 0); ctx.restore();
+    ctx.font = "700 24px 'Arial Narrow', Arial, sans-serif";
+    ctx.save(); ctx.translate(STRIP.width - 21, y + STRIP.frameH * 0.22); ctx.rotate(Math.PI / 2);
+    ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(-34, -9); ctx.lineTo(-34, 9); ctx.lineTo(-18, 0); ctx.closePath(); ctx.stroke();
+    ctx.fillText(`${i + 1}A`, 12, 0); ctx.restore();
   });
 
-  // footer ribbon
-  const fy = frameTop(STRIP.frames - 1) + STRIP.frameH + 30;
-  ctx.fillStyle = COLORS.burgundy; ctx.fillRect(STRIP.railW, fy, STRIP.frameW, 64);
-  ctx.strokeStyle = COLORS.gold; ctx.lineWidth = 2; ctx.strokeRect(STRIP.railW + 4, fy + 4, STRIP.frameW - 8, 56);
-  ctx.textAlign = 'center'; ctx.fillStyle = COLORS.goldHi; ctx.font = "700 22px Georgia, 'Times New Roman', serif";
-  ctx.fillText(formatStripDate(date), STRIP.width / 2, fy + 24);
-  ctx.fillStyle = COLORS.champagne; ctx.font = "600 13px 'Courier New', monospace";
-  ctx.fillText('FLOOR 7  ·  FOOD COURT & ARCADE', STRIP.width / 2, fy + 46);
+  if (opts.stamp === true) {
+    ctx.fillStyle = COLORS.amber; ctx.font = "700 22px 'Courier New', monospace"; ctx.textAlign = 'center';
+    ctx.fillText(formatStripDate(opts.date ?? new Date()), STRIP.width / 2, STRIP_HEIGHT - STRIP.bottom / 2);
+  }
 
   for (const s of STICKER_PLACEMENTS) drawSticker(ctx, s.kind, s.x, s.y, s.size, s.rot);
   ctx.restore();

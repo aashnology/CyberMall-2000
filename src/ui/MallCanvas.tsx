@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_CONCOURSE as SPEC, concourseToWorld, type FloorLayout } from '../spatial/concourse';
-import { floor7Landmarks, nearPhotobooth } from '../spatial/landmarks';
+import { floor7Landmarks, nearPhotobooth, PHOTOBOOTH_HALF_WIDTH } from '../spatial/landmarks';
 import { drawScene, landmarkPositions, type FloorLayer } from '../scene/drawScene';
 import { clampZoom, screenToWorld, worldToScreen, type Camera } from '../scene/camera';
 import { initialWalker, NO_INPUT, setTarget, stepWalker, type KeyInput, type Walker } from '../scene/movement';
@@ -245,7 +245,7 @@ export function MallCanvas({ layout, entries, floorId, pincode, banners }: Props
     }
     if (live.current.floorId === 7) {
       const booth = floor7Landmarks(SPEC, live.current.layout.radius).photobooth;
-      if (Math.hypot(p.x - booth.x, p.y - booth.y) < 4.4) {
+      if (Math.hypot(p.x - booth.x, p.y - booth.y) < PHOTOBOOTH_HALF_WIDTH + 0.6) {
         if (nearBoothRef.current) { audio.play('open'); useMallStore.getState().openPanel('photobooth'); }
         else { pendingBooth.current = true; walker.current = setTarget(SPEC, live.current.layout.radius, walker.current, booth.x, booth.y); }
         return;
