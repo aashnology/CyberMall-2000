@@ -51,7 +51,26 @@ npx tsx scripts/renderAudioDemo.ts demo.wav      # render a listenable demo of t
 npx tsx scripts/renderPhotostripPreview.ts strip.png 1   # render a sample photostrip from the avatar poses
 ```
 
+## Static hosting (GitHub Pages)
+
+The app is a client-side static build: no backend, no external API calls. State, preferences and telemetry live in
+`localStorage`; telemetry leaves the device only through **Export Telemetry (CSV)**.
+
+* `vite.config.ts` sets `base: './'`, so the same `dist/` works at `https://<user>.github.io/<repo>/` or any other path.
+* Verified: with `dist/` served under `/CyberMall-2000/`, the page, CSS, JS, both lazy chunks and the Web Worker all load
+  (HTTP 200), and no absolute `/assets/…` or localhost URL is shipped. Initial JS is ~107 kB gzipped; the analytics
+  dashboard (Recharts) and the photobooth load on demand.
+* Camera access needs a secure context. `github.io` is HTTPS, so the photobooth works there; over plain `http://` (other
+  than `localhost`) it falls back to the avatar poses.
+
+```bash
+npm run build      # writes dist/ (includes a .nojekyll marker)
+npm run preview    # serve dist/ locally
+```
+
+Publish `dist/` with any Pages method (a Pages workflow, or push `dist/` to a `gh-pages` branch). No workflow is committed yet.
+
 ## Scope notes
 
-* Deployment / hosting configuration is intentionally absent.
+* No CI/CD or deployment workflow is committed; the build is verified Pages-compatible (see above).
 * The analytics dashboard shows only what the visitor's own device recorded; there is no seeded or demo data in the app.

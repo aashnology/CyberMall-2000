@@ -125,3 +125,5 @@ kbd { font: 600 0.72em ui-monospace, monospace; padding: 1px 5px; border: 1px so
 .booth-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 4px; } .booth-actions button { padding: 10px 16px; border-radius: 8px; border: 1px solid #710912; background: #fff; color: #710912; } .booth-actions button.primary { background: #710912; color: #EFE5D2; }
 .strip-host { max-height: 62vh; overflow-y: auto; border-radius: 6px; background: #17100C; } .strip-host[hidden] { display: none; } .strip-host canvas { width: 100%; height: auto; display: block; }
 .fine-print { font-size: .75rem; opacity: .65; margin: 8px 0 0; }
+
+.loading-panel { position: absolute; inset: 0; z-index: 11; display: grid; place-items: center; background: rgba(20,12,10,.55); color: var(--ivory); font-size: 1.1rem; }

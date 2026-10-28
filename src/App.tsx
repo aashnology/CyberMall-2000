@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { Suspense, lazy, useEffect, useMemo } from 'react';
 import { audio } from './audio/instance';
 import { CATALOG } from './data/catalog';
 import { buildFloor6 } from './data/floor6';
@@ -15,8 +15,9 @@ import { Elevator } from './ui/Elevator';
 import { AvatarEditor } from './ui/AvatarEditor';
 import { Floor6Panel } from './ui/Floor6Panel';
 import { StoreModal } from './ui/StoreModal';
-import { PhotoboothModal } from './photobooth/PhotoboothModal';
-import { AnalyticsDashboard } from './components/analytics/AnalyticsDashboard';
+// Heavy, rarely-opened panels are split into their own chunks so the first paint stays small on a static host.
+const PhotoboothModal = lazy(() => import('./photobooth/PhotoboothModal').then((m) => ({ default: m.PhotoboothModal })));
+const AnalyticsDashboard = lazy(() => import('./components/analytics/AnalyticsDashboard').then((m) => ({ default: m.AnalyticsDashboard })));
 
 export function App(): React.JSX.Element {
   const pincode = useMallStore((s) => s.pincode);
@@ -58,8 +59,10 @@ export function App(): React.JSX.Element {
         {panel === 'avatar' && <AvatarEditor />}
         {panel === 'map' && <MiniMap layout={layout} entries={entries} floorId={floorId} />}
         {panel === 'elevator' && <Elevator />}
-        {panel === 'analytics' && <AnalyticsDashboard />}
-        {panel === 'photobooth' && <PhotoboothModal />}
+        <Suspense fallback={<div className="loading-panel" role="status">Loading…</div>}>
+          {panel === 'analytics' && <AnalyticsDashboard />}
+          {panel === 'photobooth' && <PhotoboothModal />}
+        </Suspense>
         <StoreModal />
       </main>
     </div>

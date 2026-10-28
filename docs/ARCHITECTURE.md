@@ -82,6 +82,12 @@ The PIN gate is mandatory: with no valid PIN, `App` renders only `PincodeGate`, 
 * No `Worker` → flat floor band, everything else works.
 * A rejected telemetry event is counted and warned, never thrown into the UI.
 
-## 7. Testing
+## 7. Static deployment
+
+Everything runs in the browser: `base: './'` (relative assets), `localStorage` persistence, no network calls (a source audit
+found none besides outbound links to partner sites), Web Worker for the marble floor, and `React.lazy` chunks for the
+analytics dashboard and the photobooth to keep first load small.
+
+## 8. Testing
 
 `npm test` runs ~170 Vitest tests: pure logic (pincode, zones, layout invariants for every floor size 0–1000, movement properties, funnel/heat-map maths), a numeric no-checkerboard test of the marble, component tests under jsdom (gate, directory, elevator, modal, dashboard, export) that also fail on any `console.error`/`warn`, and **offline Web Audio renders** that measure loudness, spectrum, crossfade smoothness and mute silence.
