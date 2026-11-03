@@ -68,9 +68,11 @@ npm run build      # writes dist/ (includes a .nojekyll marker)
 npm run preview    # serve dist/ locally
 ```
 
-Publish `dist/` with any Pages method (a Pages workflow, or push `dist/` to a `gh-pages` branch). No workflow is committed yet.
+**Deployment is automatic.** `.github/workflows/deploy.yml` runs on every push to `main` (and on manual dispatch): `npm ci` →
+`npm test` → `npm run build` (typecheck + Vite build) → publish `dist/` with the official Pages actions. A failing test or
+type error stops the deploy. One-time setting: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 
 ## Scope notes
 
-* No CI/CD or deployment workflow is committed; the build is verified Pages-compatible (see above).
+* CI/CD is limited to the Pages deploy workflow above; there is no separate PR check workflow.
 * The analytics dashboard shows only what the visitor's own device recorded; there is no seeded or demo data in the app.
