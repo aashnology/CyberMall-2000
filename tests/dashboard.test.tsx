@@ -110,7 +110,13 @@ describe('analytics dashboard', () => {
     render(<Directory directory={dir} floorEntries={dir.byFloor[1]} />);
     fireEvent.click(screen.getByRole('tab', { name: /match a mood/i }));
     fireEvent.click(screen.getByRole('radio', { name: 'Cozy Sunday' }));
-    expect(telemetry.events().map((e) => e.event_type)).toEqual(['PINCODE_SUBMITTED', 'MOOD_SELECTED']);
+    const types = telemetry.events().map((e) => e.event_type);
+    expect(types.slice(0, 2)).toEqual(['PINCODE_SUBMITTED', 'MOOD_SELECTED']);
+    // scoring-loop exposure: every ranked store is logged once as an impression under the chosen mood
+    const rest = telemetry.events().slice(2);
+    expect(rest.length).toBeGreaterThan(0);
+    expect(rest.every((e) => e.event_type === 'STORE_IMPRESSION' && e.user_mood_vector?.['cozy-sunday'] === 1)).toBe(true);
+    expect(new Set(rest.map((e) => e.item_id)).size).toBe(rest.length);
     const last = telemetry.events()[1]!;
     expect(last.item_id).toBe('cozy-sunday');
     expect(last.user_mood_vector).toEqual({ 'cozy-sunday': 1, 'corporate-chic': 0, 'jazz-club': 0, 'self-care': 0 });

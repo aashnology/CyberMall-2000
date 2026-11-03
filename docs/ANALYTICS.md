@@ -9,7 +9,7 @@ Source of truth: `src/analytics/telemetry.ts` (events, log, CSV), `src/analytics
 | `event_type` | Fired when | `item_id` | Dedupe / rule | Emitted from |
 | --- | --- | --- | --- | --- |
 | `PINCODE_SUBMITTED` | A valid PIN is accepted at the gate | `null` | Invalid input emits nothing | `ui/PincodeGate.tsx` |
-| `STORE_IMPRESSION` | A storefront is on screen for the first time this session | store id | Once per store per page load (`ImpressionTracker`); scanned every 250 ms | `ui/MallCanvas.tsx` |
+| `STORE_IMPRESSION` | A storefront is on screen for the first time this session, **or** is ranked in the Directory's mood list for the first time under a given mood | store id | Once per store per page load from the scene (`ImpressionTracker`, scanned every 250 ms); once per (mood, store) per page load from the mood list. The mood-list rows carry the mood's `user_mood_vector` and are the exposure denominator of the scoring loop | `ui/MallCanvas.tsx`, `ui/Directory.tsx` |
 | `STORE_HOVER_DWELL` | The pointer rests on one store for **≥ 3000 ms** | store id | Once per hover episode; moving away resets (`DwellTracker`) | `ui/MallCanvas.tsx` |
 | `STORE_MODAL_OPENED` | A storefront is clicked and its detail modal opens | store id | Every open | `ui/MallCanvas.tsx` |
 | `PRODUCT_SAVED_LOOKBOOK` | "Save to lookbook" is pressed and the store becomes saved | store id | Un-saving emits nothing | `ui/StoreModal.tsx` |
@@ -94,6 +94,6 @@ Power BI: import as Text/CSV (UTF-8), set `pincode` to Text, and parse `user_moo
 ## 5. Known limits
 
 * The funnel is per page-load session; there is no cross-device identity.
-* `STORE_IMPRESSION` means "was within the viewport", not "was read".
+* `STORE_IMPRESSION` means "was within the viewport" (scene) or "was in the ranked list" (mood tab), not "was read". The funnel keys journeys by (session, store), so the extra mood-list impressions do not change funnel counts.
 * The sample catalog has no `merchantUrl`s, so the last funnel stage stays at zero until real merchant links exist (Floor 6 streaming platforms do carry their real home pages).
 * No statistical tests are applied; with small samples the heat map is descriptive only.

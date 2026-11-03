@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { FLOORS } from '../data/types';
 import { MOODS, scoreEntry } from '../data/moods';
+import { useLearnedLifts } from '../analytics/learnedLifts';
 import { useMallStore } from '../state/mallStore';
 import { track } from '../analytics/track';
 import { audio } from '../audio/instance';
@@ -10,6 +11,7 @@ export function StoreModal(): React.JSX.Element | null {
   const moodId = useMallStore((s) => s.moodId);
   const lookbook = useMallStore((s) => s.lookbook);
   const pincode = useMallStore((s) => s.pincode);
+  const lifts = useLearnedLifts();
   const { closeStore, toggleLookbook } = useMallStore.getState();
 
   useEffect(() => {
@@ -23,7 +25,7 @@ export function StoreModal(): React.JSX.Element | null {
   const { store } = entry;
   const saved = lookbook.includes(store.id);
   const mood = MOODS.find((m) => m.id === moodId);
-  const score = mood === undefined ? null : scoreEntry(mood, entry);
+  const score = mood === undefined ? null : scoreEntry(mood, entry, lifts);
 
   return (
     <div className="modal-back" onPointerDown={(e) => { if (e.target === e.currentTarget) closeStore(); }}>

@@ -1,9 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { FLOORS, FLOOR_IDS, type FloorId } from '../data/types';
 import type { DirectoryEntry, DirectoryResult } from '../engine/pincode';
 import { MOODS, matchMood } from '../data/moods';
 import { useMallStore } from '../state/mallStore';
 import { track } from '../analytics/track';
+import { useLearnedLifts } from '../analytics/learnedLifts';
+import { moodImpressions } from '../analytics/instance';
 import { audio } from '../audio/instance';
 import { CATALOG } from '../data/catalog';
 
@@ -12,7 +14,17 @@ export function Directory({ directory, floorEntries }: { readonly directory: Dir
   const [tab, setTab] = useState<'stores' | 'moods' | 'lookbook'>('stores');
   const mood = MOODS.find((m) => m.id === moodId);
   const everything = useMemo(() => FLOOR_IDS.flatMap((f) => directory.byFloor[f]), [directory]);
-  const matches = useMemo(() => (mood === undefined ? [] : matchMood(mood, everything)), [mood, everything]);
+  const lifts = useLearnedLifts();
+  const matches = useMemo(() => (mood === undefined ? [] : matchMood(mood, everything, lifts)), [mood, everything, lifts]);
+
+  // Scoring-loop exposure: a store ranked for a mood counts as an impression under that mood,
+  // once per session per (mood, store). This is the denominator the lift table learns from.
+  useEffect(() => {
+    if (mood === undefined || tab !== 'moods') return;
+    for (const m of matches) {
+      if (moodImpressions.observe([`${mood.id}|${m.entry.store.id}`]).length > 0) track('STORE_IMPRESSION', m.entry.store.id, m.entry);
+    }
+  }, [mood, matches, tab]);
 
   return (
     <aside className="drawer" aria-label="Directory and lookbook">
@@ -50,7 +62,7 @@ export function Directory({ directory, floorEntries }: { readonly directory: Dir
                 onClick={() => { audio.play('click'); if (m.id === moodId) setMood(null); else { setMood(m.id); track('MOOD_SELECTED', m.id); } }}>{m.label}</button>
             ))}
           </div>
-          <p className="muted">Score = how well a store’s category fits the mood × a delivery factor. Every number is shown.</p>
+          <p className="muted">Score = how well a store’s category fits the mood (adjusted by what visitors actually opened and saved) × a delivery factor. Every number is shown.</p>
           {mood === undefined && <p className="empty">Pick a mood to rank stores by fit. With no mood selected, nothing is scored.</p>}
           {mood !== undefined && matches.length === 0 && <p className="empty">No stores match this mood yet.</p>}
           <ul className="store-list">

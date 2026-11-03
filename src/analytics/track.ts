@@ -4,6 +4,7 @@ import { TelemetryError, type EventType, type TelemetryEvent } from './telemetry
 import { MOODS, moodVector, scoreEntry } from '../data/moods';
 import type { DirectoryEntry } from '../engine/pincode';
 import { useMallStore } from '../state/mallStore';
+import { currentLifts } from './learnedLifts';
 
 let faults = 0;
 /** Number of events dropped because they failed validation (a bug indicator, shown nowhere by default). */
@@ -22,7 +23,7 @@ export function track(type: EventType, itemId: string | null, entry?: DirectoryE
     return telemetry.track(type, {
       pincode: s.pincode,
       item_id: itemId,
-      match_score: mood !== undefined && entry !== undefined ? scoreEntry(mood, entry) : null,
+      match_score: mood !== undefined && entry !== undefined ? scoreEntry(mood, entry, currentLifts()) : null,
       user_mood_vector: mood === undefined ? null : moodVector(mood.id),
     });
   } catch (err) {

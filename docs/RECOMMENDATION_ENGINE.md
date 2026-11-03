@@ -1,6 +1,6 @@
 # Recommendation engine
 
-This document specifies what the engine **actually does today** (`src/data/moods.ts`, `src/engine/pincode.ts`). It is deliberately small and fully explainable. Section 6 lists ideas that are *not* implemented.
+This document specifies what the engine **actually does today** (`src/data/moods.ts`, `src/engine/scoringLoop.ts`, `src/engine/pincode.ts`). §1–§5 describe the editorial scorer; §6 describes the telemetry loop that adjusts it. It is deliberately small and fully explainable. Section 7 lists ideas that are *not* implemented.
 
 ## 1. Scoring
 
@@ -22,7 +22,7 @@ score(i) = fit(i) · g(status(i))
 | Cozy Sunday | books 1.0 · bakery 0.9 · tea room 0.9 · cafe 0.8 · bath-body 0.6 · board games 0.6 · stationery 0.5 |
 | Self-Care Reset | skincare 1.0 · bath-body 0.9 · salon 0.8 · haircare 0.7 · ayurveda 0.7 · supplements 0.6 · fragrance 0.6 |
 
-These weights are **hand-authored priors, not learned from data**. The only way to claim they are good is to measure them (see §6).
+These weights are **hand-authored priors**. Telemetry adjusts them only through the bounded lift in §6; the priors themselves are never overwritten. The only way to claim they are good is to measure them (see §7).
 
 ## 2. Delivery gating
 
@@ -58,9 +58,45 @@ Two layers:
 * a non-deliverable store scores strictly below a deliverable one of equal fit;
 * the mood vector is one-hot over all mood ids.
 
-## 6. Not implemented (proposals; require approval before any work)
+## 6. Scoring loop (telemetry → lift → score)
+
+The log feeds the scorer. `computeLifts(events, catalog, moods)` is a pure function of the telemetry events (`src/engine/scoringLoop.ts`); `useLearnedLifts()` recomputes it whenever the log changes, and `matchMood`, `scoreEntry`, the store modal and the `match_score` written to telemetry all use the same table.
+
+```
+journey (s, i, m)  = session s saw store i under mood m   (STORE_IMPRESSION carrying mood m's one-hot vector)
+y(s, i, m)         = weight of the deepest stage reached under the SAME mood:
+                     dwell 0.25 · modal open 0.50 · lookbook save 0.75 · merchant click 1.00 · none 0
+n_mc = #journeys of mood m, subcategory c      s_mc = Σ y         p_m = Σ_c s_mc / Σ_c n_mc
+
+rate_mc = (s_mc + K·p_m) / (n_mc + K)          K = 10 pseudo-journeys
+lift_mc = clamp(rate_mc / p_m, 0.5, 1.5)       (1 if p_m = 0)
+fit'(i) = min(1, W_m[c(i)] · lift_mc)          score(i) = fit'(i) · g(status(i))
+```
+
+Why this shape:
+
+* **Cold start is the prior.** No data ⇒ `n_mc = 0` ⇒ `rate_mc = p_m` ⇒ `lift = 1`. The engine reproduces §1 exactly until visitors generate evidence.
+* **Shrinkage.** `K` blends each cell with its mood's pooled rate, so one lucky click cannot swing a category; the weight on the cell's own data is `n/(n+K)` (50 % at 10 journeys).
+* **Bounded drift.** The clamp lets telemetry move a prior by at most ±50 %. A zero prior stays zero: the loop reorders and rescales categories a mood already admits, it never invents affinity. Scores stay in [0,1].
+* **Deliverability is excluded from learning.** Impressions of stores that do not deliver to that PIN are dropped (they cannot convert by construction; including them would teach the engine that their category is unpopular). Delivery is derived by joining the event's `pincode` with the catalog's `serviceablePincodes`.
+* **Explainable.** The `why` string gains `× learned lift 1.12 (n=18)` once a cell has data.
+
+`K`, the clamp and the stage weights are **design constants, not estimates**, in the same sense as `g` in §2.
+
+Counted but not used: impressions with no mood, with a store id missing from the catalog, or with a non-deliverable store are tallied in `LiftTable.diagnostics`.
+
+Known limits (stated, not hidden):
+
+* **Position/exposure feedback.** Ranking affects what gets clicked, so lifts partly measure the ranking they produced. The clamp bounds the effect; removing it needs randomised ordering, which is not implemented.
+* **Single-device log.** The log is per browser (`localStorage`, capped at 5,000 events), so the loop learns from this visitor's history, not a population. Population-level learning needs the later multi-user milestone.
+* **Pooled rate is noisy when a mood has few journeys.** Example: one hit against many misses elsewhere in the mood gives a large raw ratio; the clamp is what protects the score there.
+* **Outcome weights are editorial.** Stage values are not fitted to any ground-truth conversion.
+
+Properties covered by tests (`tests/scoringLoop.test.ts`): empty log ⇒ prior unchanged; attribution rules (same-mood outcomes only, deepest stage, de-duplication, excluded impressions); closed-form pooled rate and shrunk rate; clamp bounds; scores in [0,1]; zero prior never promoted; sort order; end-to-end through `TelemetryLog`.
+
+## 7. Not implemented (proposals; require approval before any work)
 
 * **Multi-mood blending** (`v` with several non-zero entries) and a normalisation rule.
-* **Learning the weight tables** from `STORE_MODAL_OPENED` / `PRODUCT_SAVED_LOOKBOOK` outcomes, with a held-out check that learned weights beat the hand-authored priors.
+* **A held-out check** that the learned lifts (§6) actually beat the hand-authored priors; §6 learns from telemetry but does not yet prove it helps.
 * **PIN-cluster popularity prior** as a cold-start fallback, shrunk toward the global rate when a cluster has few sessions.
 * **Calibrating `g`** from observed behaviour on non-deliverable stores.

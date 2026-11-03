@@ -5,6 +5,7 @@
  * exactly which numbers produced the score.
  */
 import type { DirectoryEntry } from '../engine/pincode';
+import { liftFor, type LiftTable } from '../engine/scoringLoop';
 
 export interface Mood {
   readonly id: string;
@@ -28,10 +29,20 @@ export interface MoodMatch {
   readonly why: string;
 }
 
+/**
+ * Mood fit of one store: the editorial prior, optionally multiplied by the lift learned from
+ * telemetry (see engine/scoringLoop.ts), capped at 1. No table or no data for the cell ⇒ lift 1.
+ */
+export function fitOf(mood: Mood, entry: DirectoryEntry, lifts?: LiftTable): { readonly prior: number; readonly lift: number; readonly n: number; readonly fit: number } {
+  const prior = mood.weights[entry.store.subcategory.toLowerCase()] ?? 0;
+  const cell = prior === 0 ? null : liftFor(lifts, mood.id, entry.store.subcategory);
+  const lift = cell?.lift ?? 1;
+  return { prior, lift, n: cell?.n ?? 0, fit: Math.min(1, prior * lift) };
+}
+
 /** Score in [0,1] for one store under one mood; 0 when the category has no affinity. */
-export function scoreEntry(mood: Mood, entry: DirectoryEntry): number {
-  const w = mood.weights[entry.store.subcategory.toLowerCase()] ?? 0;
-  return w * DELIVERY_FACTOR[entry.status];
+export function scoreEntry(mood: Mood, entry: DirectoryEntry, lifts?: LiftTable): number {
+  return fitOf(mood, entry, lifts).fit * DELIVERY_FACTOR[entry.status];
 }
 
 /** One-hot mood vector over every known mood id (active mood = 1). */
@@ -39,13 +50,14 @@ export function moodVector(activeId: string | null, moods: readonly Mood[] = MOO
   return Object.fromEntries(moods.map((m) => [m.id, m.id === activeId ? 1 : 0]));
 }
 
-export function matchMood(mood: Mood, entries: readonly DirectoryEntry[]): MoodMatch[] {
+export function matchMood(mood: Mood, entries: readonly DirectoryEntry[], lifts?: LiftTable): MoodMatch[] {
   const out: MoodMatch[] = [];
   for (const entry of entries) {
-    const w = mood.weights[entry.store.subcategory.toLowerCase()] ?? 0;
-    if (w === 0) continue;
+    const { prior, lift, n, fit } = fitOf(mood, entry, lifts);
+    if (prior === 0) continue;
     const f = DELIVERY_FACTOR[entry.status];
-    out.push({ entry, score: scoreEntry(mood, entry), why: `${entry.store.subcategory} fit ${w.toFixed(2)} × delivery ${f.toFixed(2)} (${entry.status})` });
+    const learned = n > 0 ? ` × learned lift ${lift.toFixed(2)} (n=${n})` : '';
+    out.push({ entry, score: fit * f, why: `${entry.store.subcategory} fit ${prior.toFixed(2)}${learned} × delivery ${f.toFixed(2)} (${entry.status})` });
   }
   return out.sort((a, b) => b.score - a.score || a.entry.store.name.localeCompare(b.entry.store.name));
 }
