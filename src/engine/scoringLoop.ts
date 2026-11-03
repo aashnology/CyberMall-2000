@@ -151,3 +151,41 @@ export function computeLifts(
 export function liftFor(table: LiftTable | undefined, moodId: string, subcategory: string): LiftCell | null {
   return table?.byMood[moodId]?.cells[subcategory.toLowerCase()] ?? null;
 }
+
+/* ───────────────────────── dashboard view-model ───────────────────────── */
+
+export interface LiftReportRow {
+  readonly subcategory: string;
+  /** Editorial weight W_m[c]. */
+  readonly prior: number;
+  /** Journeys behind the cell (0 = no evidence yet). */
+  readonly n: number;
+  /** Shrunk outcome rate; null with no evidence. */
+  readonly rate: number | null;
+  readonly lift: number;
+  /** min(1, prior · lift): the weight the engine actually uses. */
+  readonly effective: number;
+  /** Weight on the cell's own data, n / (n + K), in [0,1). */
+  readonly evidenceShare: number;
+}
+export interface LiftReportMood {
+  readonly moodId: string;
+  readonly label: string;
+  readonly journeys: number;
+  readonly pooledRate: number | null;
+  readonly rows: readonly LiftReportRow[];
+}
+
+/** Every prior subcategory of every mood, with its learned lift (1 where the log has no evidence). Sorted by effective weight. */
+export function liftReport(table: LiftTable, moods: readonly Mood[]): LiftReportMood[] {
+  return moods.map((m) => {
+    const rows = Object.entries(m.weights).map(([subcategory, prior]): LiftReportRow => {
+      const cell = liftFor(table, m.id, subcategory);
+      const lift = cell?.lift ?? 1;
+      const n = cell?.n ?? 0;
+      return { subcategory, prior, n, rate: cell === null ? null : cell.rate, lift, effective: Math.min(1, prior * lift), evidenceShare: n / (n + SHRINKAGE_K) };
+    }).sort((a, b) => b.effective - a.effective || a.subcategory.localeCompare(b.subcategory));
+    const ml = table.byMood[m.id];
+    return { moodId: m.id, label: m.label, journeys: ml?.journeys ?? 0, pooledRate: ml?.pooledRate ?? null, rows };
+  });
+}

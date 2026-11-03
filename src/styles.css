@@ -127,3 +127,11 @@ kbd { font: 600 0.72em ui-monospace, monospace; padding: 1px 5px; border: 1px so
 .fine-print { font-size: .75rem; opacity: .65; margin: 8px 0 0; }
 
 .loading-panel { position: absolute; inset: 0; z-index: 11; display: grid; place-items: center; background: rgba(20,12,10,.55); color: var(--ivory); font-size: 1.1rem; }
+
+/* learned-lift panel */
+.lift-mood { margin-top: 14px; } .lift-mood h4 { margin: 0 0 6px; } .lift-mood h4 small { font-weight: 400; color: var(--muted, #6b5a52); }
+.an-table.lift td, .an-table.lift th { white-space: nowrap; } .lift-none { opacity: .6; }
+.lift-bar { position: relative; display: inline-block; width: 84px; height: 8px; margin-right: 8px; vertical-align: middle; background: rgba(88,17,26,.12); border-radius: 4px; }
+.lift-mid { position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: rgba(43,30,26,.55); }
+.lift-dot { position: absolute; top: -2px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: #58111a; border: 2px solid #FDFBF7; box-sizing: border-box; }
+.an-table.lift .up { color: #2f6b3a; } .an-table.lift .down { color: #9a2a2a; }

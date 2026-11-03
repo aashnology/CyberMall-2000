@@ -6,6 +6,8 @@ import { MOODS } from '../../data/moods';
 import { useMallStore } from '../../state/mallStore';
 import { ConversionFunnel } from './ConversionFunnel';
 import { AffinityHeatMap } from './AffinityHeatMap';
+import { LearnedLiftPanel } from './LearnedLiftPanel';
+import { useLearnedLifts } from '../../analytics/learnedLifts';
 import { ExportButton } from './ExportButton';
 import { fmtInt } from './format';
 
@@ -14,6 +16,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
   const close = useMallStore((s) => s.closePanel);
   const funnel = useMemo(() => computeFunnel(events), [events]);
   const heat = useMemo(() => computeAffinity(events, MOODS), [events]);
+  const lifts = useLearnedLifts();
   const sum = useMemo(() => summarize(events), [events]);
   return (
     <div className="analytics-overlay" role="dialog" aria-modal="true" aria-label="Analytics dashboard">
@@ -30,6 +33,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
         </div>
         <ConversionFunnel rows={funnel} />
         <AffinityHeatMap map={heat} />
+        <LearnedLiftPanel table={lifts} moods={MOODS} />
         <ExportButton events={events} />
         <button type="button" className="link danger" disabled={events.length === 0}
           onClick={() => { if (window.confirm('Delete all telemetry stored on this device? This cannot be undone.')) telemetry.clear(); }}>Clear stored telemetry</button>

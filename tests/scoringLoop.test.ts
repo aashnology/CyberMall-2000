@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeLifts, activeMoodId, liftFor, SHRINKAGE_K, LIFT_MIN, LIFT_MAX, EMPTY_LIFTS } from '../src/engine/scoringLoop';
+import { computeLifts, liftReport, activeMoodId, liftFor, SHRINKAGE_K, LIFT_MIN, LIFT_MAX, EMPTY_LIFTS } from '../src/engine/scoringLoop';
 import { MOODS, moodVector, matchMood, scoreEntry } from '../src/data/moods';
 import { TelemetryLog, type EventType, type TelemetryEvent } from '../src/analytics/telemetry';
 import type { Store } from '../src/data/types';
@@ -148,5 +148,28 @@ describe('end to end: real TelemetryLog → CSV-grade events → lifts', () => {
     const cell = computeLifts(log.events(), CATALOG, MOODS).byMood['cozy-sunday']!.cells['books']!;
     expect(cell.n).toBe(1);
     expect(cell.sum).toBe(0.5);
+  });
+});
+
+describe('liftReport (dashboard view-model)', () => {
+  it('lists every prior subcategory of every mood; no data ⇒ lift 1, n 0, effective = prior', () => {
+    const rep = liftReport(EMPTY_LIFTS, MOODS);
+    expect(rep.map((m) => m.moodId)).toEqual(MOODS.map((m) => m.id));
+    for (const m of rep) {
+      const mood = MOODS.find((x) => x.id === m.moodId)!;
+      expect(m.rows).toHaveLength(Object.keys(mood.weights).length);
+      for (const r of m.rows) { expect(r.lift).toBe(1); expect(r.n).toBe(0); expect(r.rate).toBeNull(); expect(r.effective).toBe(r.prior); expect(r.evidenceShare).toBe(0); }
+    }
+  });
+  it('reflects learned cells, is sorted by effective weight and matches the scorer', () => {
+    const lifts = computeLifts([...cohort('bk', 'b1', 20, 16), ...cohort('tr', 't1', 20, 2)], CATALOG, MOODS);
+    const m = liftReport(lifts, MOODS).find((x) => x.moodId === 'cozy-sunday')!;
+    expect(m.journeys).toBe(40);
+    const books = m.rows.find((r) => r.subcategory === 'books')!;
+    expect(books.n).toBe(20);
+    expect(books.evidenceShare).toBeCloseTo(20 / (20 + SHRINKAGE_K), 12);
+    expect(books.effective).toBe(Math.min(1, books.prior * books.lift));
+    expect(scoreEntry(cozy, entry(CATALOG[0]!), lifts)).toBeCloseTo(books.effective, 12);
+    for (let i = 1; i < m.rows.length; i++) expect(m.rows[i - 1]!.effective).toBeGreaterThanOrEqual(m.rows[i]!.effective);
   });
 });

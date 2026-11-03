@@ -10,6 +10,9 @@ import { telemetry } from '../src/analytics/instance';
 import { track } from '../src/analytics/track';
 import { useMallStore } from '../src/state/mallStore';
 import { eventsToCsv } from '../src/analytics/telemetry';
+import { LearnedLiftPanel } from '../src/components/analytics/LearnedLiftPanel';
+import { computeLifts, EMPTY_LIFTS } from '../src/engine/scoringLoop';
+import { MOODS, moodVector } from '../src/data/moods';
 import { parseCsv } from '../src/data/indiaPost';
 import { buildDirectory } from '../src/engine/pincode';
 import { CATALOG } from '../src/data/catalog';
@@ -124,7 +127,7 @@ describe('analytics dashboard', () => {
     render(<AnalyticsDashboard />);
     const cell = screen.getByRole('cell', { name: /100\.0% of 1 sessions from Western Suburbs, Mumbai engaged with Cozy Sunday/ });
     expect(cell.textContent).toContain('1/1');
-    expect(screen.getByText(/low n/)).toBeTruthy();
+    expect(within(screen.getByRole('region', { name: /aesthetic affinity/i })).getByText(/low n/)).toBeTruthy();
   });
 });
 
@@ -189,5 +192,41 @@ describe('store modal events', () => {
     render(<StoreModal />);
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(useMallStore.getState().selected).toBeNull();
+  });
+});
+
+describe('learned lift panel', () => {
+  beforeEach(() => { telemetry.clear(); });
+  afterEach(() => { cleanup(); });
+  it('cold start: honest empty state, every cell at lift 1.00 and n 0', () => {
+    render(<LearnedLiftPanel table={EMPTY_LIFTS} moods={MOODS} />);
+    expect(screen.getByText(/no mood-tagged journeys yet/i)).toBeTruthy();
+    const region = screen.getByRole('region', { name: /learned lift/i });
+    expect(within(region).getAllByRole('table')).toHaveLength(MOODS.length);
+    for (const c of within(region).getAllByLabelText('lift 1.00')) expect(c).toBeTruthy();
+  });
+  it('shows learned n, rate and a lift away from 1.00 when the log has evidence', () => {
+    const store = CATALOG.find((s) => s.subcategory.toLowerCase() === 'books' && s.serviceablePincodes.includes(PIN))!;
+    const other = CATALOG.find((s) => s.subcategory.toLowerCase() === 'tea room' && s.serviceablePincodes.includes(PIN))!;
+    const evs = [];
+    let t = 0;
+    const mk = (session: string, type: 'STORE_IMPRESSION' | 'STORE_MODAL_OPENED', id: string) => ({ session_id: session, timestamp: new Date(Date.UTC(2026, 9, 24, 9, 0, t++)).toISOString(), pincode: PIN, event_type: type, item_id: id, match_score: null, user_mood_vector: moodVector('cozy-sunday') });
+    for (let i = 0; i < 20; i++) { evs.push(mk(`bk-${String(i).padStart(4, '0')}`, 'STORE_IMPRESSION', store.id)); if (i < 16) evs.push(mk(`bk-${String(i).padStart(4, '0')}`, 'STORE_MODAL_OPENED', store.id)); }
+    for (let i = 0; i < 20; i++) evs.push(mk(`tr-${String(i).padStart(4, '0')}`, 'STORE_IMPRESSION', other.id));
+    render(<LearnedLiftPanel table={computeLifts(evs, CATALOG, MOODS)} moods={MOODS} />);
+    expect(screen.queryByText(/no mood-tagged journeys yet/i)).toBeNull();
+    const region = screen.getByRole('region', { name: /learned lift/i });
+    const cozyTable = within(region).getByRole('table', { name: /Cozy Sunday/ });
+    const row = within(cozyTable).getByRole('rowheader', { name: 'books' }).closest('tr')!;
+    expect(within(row).getAllByRole('cell')[1]!.textContent).toBe('20');
+    expect(row.querySelector('td[aria-label^="lift "]')!.getAttribute('aria-label')).not.toBe('lift 1.00');
+  });
+  it('is part of the dashboard and updates from the live telemetry log', () => {
+    const store = CATALOG.find((s) => s.subcategory.toLowerCase() === 'books' && s.serviceablePincodes.includes(PIN))!;
+    telemetry.track('STORE_IMPRESSION', { pincode: PIN, item_id: store.id, user_mood_vector: moodVector('cozy-sunday') });
+    render(<AnalyticsDashboard />);
+    const region = screen.getByRole('region', { name: /learned lift/i });
+    const row = within(within(region).getByRole('table', { name: /Cozy Sunday/ })).getByRole('rowheader', { name: 'books' }).closest('tr')!;
+    expect(within(row).getAllByRole('cell')[1]!.textContent).toMatch(/^1/);
   });
 });
