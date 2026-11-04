@@ -144,8 +144,11 @@ describe('particle field', () => {
     const c = createCanvas(1280, 720); const ctx = c.getContext('2d') as unknown as CanvasRenderingContext2D;
     const f = new ParticleField(140); f.resize(1280, 720); f.configure('leaves', 1);
     for (let i = 0; i < 30; i += 1) { f.step(1 / 60); f.draw(ctx, { night: false, parallaxX: 0, parallaxY: 0 }); } // warm-up
-    const t0 = performance.now();
+    // Budget is CPU time, not wall-clock: on a shared CI runner a descheduled process would otherwise fail
+    // this guard without the particle code having become any heavier. The 4 ms budget is unchanged.
+    const cpu0 = process.cpuUsage();
     for (let i = 0; i < 240; i += 1) { f.step(1 / 60); f.draw(ctx, { night: false, parallaxX: i, parallaxY: 0 }); }
-    expect((performance.now() - t0) / 240).toBeLessThan(4);
+    const cpu = process.cpuUsage(cpu0);
+    expect(((cpu.user + cpu.system) / 1000) / 240).toBeLessThan(4);
   });
 });
